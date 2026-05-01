@@ -105,9 +105,11 @@ export default function CourseList({ onSelectCourse, onCreateCourse, onOpenTeach
       ? Math.max(6, Number(course.generation_progress || 0))
       : isFailed
         ? 0
-        : course.total_modules > 0
-          ? Math.round((course.completed_modules / course.total_modules) * 100)
-          : 0
+        : finished
+          ? 100
+          : course.total_modules > 0
+            ? Math.round((course.completed_modules / course.total_modules) * 100)
+            : 0
     const ringPct = Math.max(0, Math.min(100, progress))
     const ringStroke = isFailed
       ? 'rgba(255,140,140,0.6)'

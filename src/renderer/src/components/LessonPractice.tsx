@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { GameType, Lesson, LessonPracticeExercise, LessonPracticeGameLaunch, LessonPracticeReinforcement, LessonPracticeSet, LessonReward } from '../../../../shared/types'
 import { playBlip, playClick, playDing } from '../lib/sounds'
 import { useLanguage } from '../contexts/LanguageContext'
+import { markLessonCompletedToday } from './StreakNudge'
 
 interface Props {
   courseId: number
@@ -83,7 +84,13 @@ function PracticeCodeBlock({ code }: { code: string }) {
   )
 }
 
-export default function LessonPractice({ courseId, lesson, nextTeaser, onComplete, onReview, onReward, onOpenGameMix, gameReinforcement, onAcknowledgeGameReinforcement }: Props) {
+export default function LessonPractice({ courseId, lesson, nextTeaser, onComplete: rawOnComplete, onReview, onReward, onOpenGameMix, gameReinforcement, onAcknowledgeGameReinforcement }: Props) {
+  // Wrap completion so the StreakNudge stops bothering the user once they
+  // finish a lesson via the practice path (mirrors LessonViewer's wiring).
+  const onComplete = () => {
+    markLessonCompletedToday()
+    rawOnComplete()
+  }
   const { t } = useLanguage()
   const [practiceSet, setPracticeSet] = useState<LessonPracticeSet | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
