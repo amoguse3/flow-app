@@ -3,6 +3,7 @@ import type { AIStatus, ChatTokenEvent, UserProfile } from '../../../../../share
 import { t as translateString, type AppLanguage } from '../../../../../shared/i18n'
 import OnboardingDesktop from '../OnboardingDesktop'
 import Sidebar from '../Sidebar'
+import StreakNudge from '../StreakNudge'
 import BotOrb, { MOOD_CONFIG, type BotMood } from '../BotOrb'
 import type { MenuAction } from '../FloatingMenu'
 import FloatingMenu from '../FloatingMenu'
@@ -455,17 +456,29 @@ export default function AppShell({ motivationState }: Props) {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center" style={{ background: '#080606' }}>
+      <div className="h-full flex items-center justify-center" style={{ background: '#08070C' }}>
         <ThemedBackground />
-        <div className="relative z-10 flex flex-col items-center gap-4 animate-fade-in">
+        <div className="relative z-10 flex flex-col items-center gap-5 animate-fade-in">
           <div
-            className="w-16 h-16 rounded-full animate-breathe"
+            className="w-20 h-20 rounded-full animate-breathe"
             style={{
-              background: 'radial-gradient(circle, #d97706 0%, #92400e 70%, transparent 100%)',
-              boxShadow: '0 0 40px rgba(217,119,6,0.4), 0 0 80px rgba(217,119,6,0.1)',
+              background:
+                'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85) 0%, var(--aura-accent, #C8A3FF) 35%, rgba(0,0,0,0.6) 90%)',
+              boxShadow:
+                '0 0 50px rgba(var(--aura-accent-rgb, 200,163,255), 0.45), 0 0 110px rgba(var(--aura-accent-rgb, 200,163,255), 0.18)',
             }}
           />
-          <span className="text-aura-muted text-sm tracking-widest uppercase">wispucci ai beta</span>
+          <span
+            style={{
+              fontFamily: "'Newsreader', 'Iowan Old Style', Georgia, serif",
+              fontStyle: 'italic',
+              fontSize: 17,
+              letterSpacing: '0.04em',
+              color: 'rgba(245,237,225,0.55)',
+            }}
+          >
+            wispucci · ai
+          </span>
         </div>
       </div>
     )
@@ -674,24 +687,33 @@ export default function AppShell({ motivationState }: Props) {
 
       {sidebarOpen && <Sidebar onClose={() => setSidebarOpen(false)} profile={profile} />}
 
+      <StreakNudge />
+
       {achievementNotice && (
         <button
           type="button"
           onClick={clearAchievementNotice}
-          className="absolute bottom-4 right-4 z-[60] flex items-center gap-2 px-3 py-2 rounded-lg text-left"
+          className="glass-md absolute bottom-4 right-4 z-[60] flex items-center gap-3 text-left"
           style={{
-            fontFamily: "'Press Start 2P', monospace",
-            background: 'rgba(10,6,6,0.9)',
-            border: '1px solid rgba(245,158,11,0.25)',
-            boxShadow: '0 0 20px rgba(245,158,11,0.1), 0 8px 24px rgba(0,0,0,0.4)',
+            padding: '12px 16px',
+            borderRadius: 16,
+            boxShadow:
+              'inset 0 1px 0 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(var(--aura-accent-rgb,200,163,255),0.22), 0 0 50px -10px rgba(var(--aura-accent-rgb,200,163,255),0.45), 0 16px 40px -10px rgba(0,0,0,0.55)',
             animation: 'achieveMinecraft 4.2s cubic-bezier(.16,1,.3,1) forwards',
-            minWidth: 240,
+            minWidth: 260,
           }}
         >
-          <span style={{ fontSize: 14 }}>{achievementNotice.icon}</span>
-          <span className="flex flex-col gap-0.5">
-            <span style={{ fontSize: 6, color: 'rgba(200,160,140,0.7)', letterSpacing: '0.08em' }}>{achievementNotice.title}</span>
-            <span style={{ fontSize: 7, color: 'rgba(251,191,36,0.85)', letterSpacing: '0.08em' }}>{achievementNotice.text}</span>
+          <span style={{ fontSize: 22 }}>{achievementNotice.icon}</span>
+          <span className="flex flex-col gap-0.5" style={{ minWidth: 0 }}>
+            <span style={{ fontSize: 10, color: 'var(--color-paper-3)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+              {achievementNotice.title}
+            </span>
+            <span
+              className="font-serif-ui"
+              style={{ fontSize: 14, color: 'var(--color-paper-0)', lineHeight: 1.3, fontWeight: 600 }}
+            >
+              {achievementNotice.text}
+            </span>
           </span>
         </button>
       )}

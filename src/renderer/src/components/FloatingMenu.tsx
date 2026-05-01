@@ -142,7 +142,7 @@ const ACCENTS: Record<MenuAction, { icon: string; border: string; glow: string; 
   settings: { icon: 'rgba(196,154,60,0.55)',  border: 'rgba(196,154,60,0.22)',  glow: 'rgba(196,154,60,0.1)',    label: 'rgba(196,154,60,0.48)'  },
 }
 
-const PX = "'Press Start 2P', monospace"
+const PX = "'Inter', system-ui, -apple-system, sans-serif"
 
 const FLOATING_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -243,15 +243,16 @@ export default function FloatingMenu({ open, onSelect, onClose }: Props) {
           >
             <div style={{
               fontFamily: PX,
-              fontSize: 7,
-              lineHeight: 1.9,
-              letterSpacing: '0.16em',
+              fontSize: 11,
+              fontWeight: 500,
+              lineHeight: 1.4,
+              letterSpacing: '0.18em',
               textTransform: 'uppercase',
-              color: 'rgba(232,197,106,0.7)',
+              color: 'var(--color-paper-2)',
               marginBottom: 14,
               textAlign: 'center',
             }}>
-              Quick Menu
+              Quick menu
             </div>
 
             <div style={{
@@ -299,7 +300,8 @@ export default function FloatingMenu({ open, onSelect, onClose }: Props) {
                     </div>
                     <span style={{
                       fontFamily: PX,
-                      fontSize: 5,
+                      fontSize: 11,
+                      fontWeight: 500,
                       lineHeight: 1.5,
                       letterSpacing: '0.12em',
                       textTransform: 'uppercase',
@@ -398,8 +400,8 @@ export default function FloatingMenu({ open, onSelect, onClose }: Props) {
                       textAlign: 'center',
                     }}>
                       <span style={{
-                        fontFamily: PX, fontSize: 5, lineHeight: 1.4,
-                        letterSpacing: '0.14em', textTransform: 'uppercase',
+                        fontFamily: PX, fontSize: 11, fontWeight: 500, lineHeight: 1.3,
+                        letterSpacing: '0.05em', textTransform: 'none',
                         whiteSpace: 'nowrap',
                         color: isHovered ? acc.label : 'rgba(196,154,60,0.22)',
                         transition: 'color 0.28s ease',
