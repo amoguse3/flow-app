@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx electron-vite:*)",
+      "Bash(grep -n \"\\\\.catch\\\\|try\\\\|catch\" \"C:\\\\Users\\\\minon69\\\\Desktop\\\\flow-app\\\\src\\\\renderer\\\\src\\\\components\"/*.tsx)",
+      "WebSearch",
+      "Bash(ls tsconfig*.json)",
+      "Read(//c/Users/minon69/Desktop/flow-app/**)",
+      "Bash(mkdir -p \"C:/Users/minon69/Desktop/carte-crestere/capitole\" \"C:/Users/minon69/Desktop/carte-crestere/anexe\" \"C:/Users/minon69/Desktop/carte-crestere/bibliografie\" \"C:/Users/minon69/Desktop/carte-crestere/build\")",
+      "Read(//c/Users/minon69/Desktop/**)",
+      "WebFetch(domain:ro.scribd.com)",
+      "WebFetch(domain:nomusica.com)",
+      "WebFetch(domain:news.ycombinator.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:www.reddit.com)"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+owner: minon69
+repo: AURA
+provider: github
+releaseType: release
+updaterCacheDirName: wispucci-ai-beta-updater
