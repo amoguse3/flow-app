@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Course, CourseFeedbackRecord, CourseFeedbackSubmission, Module, Lesson } from '../../../../shared/types'
+import type { Course, CourseFeedbackRecord, CourseFeedbackSubmission, CourseReinforcementSummary, Flashcard, FlashcardSaveResult, LessonPracticeGameLaunch, LessonPracticeReinforcement, Module, Lesson, TeacherCheckpoint } from '../../../../shared/types'
+import FlashcardDeck from './FlashcardDeck'
 import LessonViewer from './LessonViewer'
 import LessonQuiz from './LessonQuiz'
 import LessonPractice from './LessonPractice'
@@ -9,9 +10,13 @@ interface Props {
   onBack: () => void
   entryMode?: 'tree' | 'currentLesson'
   onStartSuggestedCourse?: (topic: string) => void
+  onOpenGames?: (launch: LessonPracticeGameLaunch) => void
+  gameReinforcement?: LessonPracticeReinforcement | null
+  courseReinforcementMap?: Record<number, CourseReinforcementSummary>
+  onAcknowledgeGameReinforcement?: (reinforcement: LessonPracticeReinforcement) => void
 }
 
-type SubView = 'tree' | 'lesson' | 'lessonQuiz' | 'lessonPractice'
+type SubView = 'tree' | 'lesson' | 'lessonQuiz' | 'lessonPractice' | 'moduleCheckpoint' | 'moduleFlashcards'
 
 type RatingField = 'overall_rating' | 'clarity_rating' | 'retention_rating' | 'difficulty_rating' | 'continue_interest_rating'
 
@@ -68,7 +73,7 @@ const FEEDBACK_FIELDS: Array<{
   },
 ]
 
-export default function CourseView({ courseId, onBack, entryMode = 'tree', onStartSuggestedCourse }: Props) {
+export default function CourseView({ courseId, onBack, entryMode = 'tree', onStartSuggestedCourse, onOpenGames, gameReinforcement, courseReinforcementMap, onAcknowledgeGameReinforcement }: Props) {
   const [course, setCourse] = useState<Course | null>(null)
   const [modules, setModules] = useState<Module[]>([])
   const [expandedMod, setExpandedMod] = useState<number | null>(null)
@@ -88,8 +93,92 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
   const [editingFeedback, setEditingFeedback] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [refiningRecommendation, setRefiningRecommendation] = useState(false)
   const [recommendationError, setRecommendationError] = useState<string | null>(null)
+  const [moduleCheckpoint, setModuleCheckpoint] = useState<TeacherCheckpoint | null>(null)
+  const [moduleCheckpointIndex, setModuleCheckpointIndex] = useState(0)
+  const [moduleCheckpointScore, setModuleCheckpointScore] = useState(0)
+  const [moduleCheckpointSelection, setModuleCheckpointSelection] = useState('')
+  const [moduleCheckpointFeedback, setModuleCheckpointFeedback] = useState<string | null>(null)
+  const [moduleCheckpointError, setModuleCheckpointError] = useState<string | null>(null)
+  const [moduleCheckpointLoading, setModuleCheckpointLoading] = useState(false)
+  const [moduleCheckpointPassed, setModuleCheckpointPassed] = useState(false)
+  const [moduleCheckpointCards, setModuleCheckpointCards] = useState<Flashcard[]>([])
+  const [moduleCheckpointSaveResult, setModuleCheckpointSaveResult] = useState<FlashcardSaveResult | null>(null)
+  const courseReinforcement = courseReinforcementMap?.[courseId] || feedbackRecord?.context?.reinforcementSummary || null
+  const moduleCheckpointPassCount = moduleCheckpoint?.questions?.length
+    ? Math.max(
+        1,
+        Math.min(
+          moduleCheckpoint.questions.length,
+          Math.ceil(moduleCheckpoint.questions.length * Math.min(1, Math.max(0.34, selectedModule?.pass_threshold || 0.8))),
+        ),
+      )
+    : 0
+
+  const isModuleReadyForCheckpoint = (module: Module | null, moduleLessons: Lesson[]) => (
+    Boolean(module) && !module?.completed && moduleLessons.length > 0 && moduleLessons.every((lesson) => lesson.completed)
+  )
+
+  const resetModuleCheckpointState = () => {
+    setModuleCheckpoint(null)
+    setModuleCheckpointIndex(0)
+    setModuleCheckpointScore(0)
+    setModuleCheckpointSelection('')
+    setModuleCheckpointFeedback(null)
+    setModuleCheckpointError(null)
+    setModuleCheckpointLoading(false)
+    setModuleCheckpointPassed(false)
+    setModuleCheckpointCards([])
+    setModuleCheckpointSaveResult(null)
+  }
+
+  const startModuleCheckpoint = async (moduleOverride?: Module, moduleLessonsOverride?: Lesson[]) => {
+    const targetModule = moduleOverride || selectedModule
+    if (!targetModule) return
+
+    const targetLessons = moduleLessonsOverride && moduleLessonsOverride.length > 0
+      ? moduleLessonsOverride
+      : targetModule.id === selectedModule?.id && lessons.length > 0
+        ? lessons
+        : await window.aura.educator.getLessons(targetModule.id)
+
+    if (!isModuleReadyForCheckpoint(targetModule, targetLessons)) return
+
+    const orderedLessons = [...targetLessons].sort((left, right) => left.order_num - right.order_num)
+    const sourceLesson = orderedLessons[orderedLessons.length - 1]
+    if (!sourceLesson) return
+
+    resetModuleCheckpointState()
+    setSelectedModule(targetModule)
+    setExpandedMod(targetModule.id)
+    setLessons(targetLessons)
+    setSelectedLesson(null)
+    setSubView('moduleCheckpoint')
+    setLessonLoadError(null)
+    setModuleCheckpointLoading(true)
+
+    try {
+      const checkpoint = await window.aura.educator.generateModuleCheckpoint(targetModule.id)
+      setModuleCheckpoint(checkpoint)
+
+      try {
+        const saveResult = await window.aura.educator.saveTeacherCheckpointFlashcards(sourceLesson.id, checkpoint.flashcards)
+        setModuleCheckpointSaveResult(saveResult)
+        const dueCards = await window.aura.educator.getDueFlashcards()
+        setModuleCheckpointCards(dueCards.filter((card) => card.module_id === targetModule.id))
+      } catch {
+        setModuleCheckpointSaveResult(null)
+        setModuleCheckpointCards([])
+      }
+    } catch (err: any) {
+      setModuleCheckpointError(err?.message || 'Could not prepare the module checkpoint right now.')
+      setModuleCheckpoint(null)
+    } finally {
+      setModuleCheckpointLoading(false)
+    }
+  }
 
   const loadCourseState = useCallback(async () => {
     setLoadError(false)
@@ -147,7 +236,11 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
     setFeedbackError(null)
     setRecommendationError(null)
     try {
-      const saved = await window.aura.educator.submitCourseFeedback(course.id, feedbackDraft)
+      const saved = await window.aura.educator.submitCourseFeedback(
+        course.id,
+        feedbackDraft,
+        courseReinforcement ? { reinforcementSummary: courseReinforcement } : null,
+      )
       setFeedbackRecord(saved)
       setFeedbackDraft({
         overall_rating: saved.overall_rating,
@@ -168,6 +261,7 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
   const startSuggestedCourse = () => {
     const topic = feedbackRecord?.recommendation?.topic?.trim()
     if (!topic || !onStartSuggestedCourse) return
+    setShowFeedbackModal(false)
     onStartSuggestedCourse(topic)
   }
 
@@ -177,8 +271,15 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
     setRefiningRecommendation(true)
     setRecommendationError(null)
     try {
-      const recommendation = await window.aura.educator.refineCourseRecommendation(course.id)
-      setFeedbackRecord((prev) => prev ? { ...prev, recommendation } : prev)
+      const recommendation = await window.aura.educator.refineCourseRecommendation(
+        course.id,
+        courseReinforcement ? { reinforcementSummary: courseReinforcement } : null,
+      )
+      setFeedbackRecord((prev) => prev ? {
+        ...prev,
+        recommendation,
+        context: courseReinforcement ? { reinforcementSummary: courseReinforcement } : (prev.context || null),
+      } : prev)
     } catch (error: any) {
       setRecommendationError(String(error?.message || 'Could not refine the recommendation right now.'))
     } finally {
@@ -260,6 +361,16 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
           fallbackLessons = moduleLessons
         }
 
+        if (isModuleReadyForCheckpoint(module, moduleLessons)) {
+          setSelectedModule(module)
+          setExpandedMod(module.id)
+          setLessons(moduleLessons)
+          setSelectedLesson(null)
+          setSubView('tree')
+          setLessonLoadError(null)
+          return
+        }
+
         const nextLesson = moduleLessons.find(lesson => !lesson.completed)
         if (nextLesson) {
           setSelectedModule(module)
@@ -291,6 +402,17 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
       cancelled = true
     }
   }, [courseId, entryMode, modules])
+
+  useEffect(() => {
+    if (course?.status !== 'completed') {
+      setShowFeedbackModal(false)
+      return
+    }
+
+    if (!feedbackRecord || editingFeedback) {
+      setShowFeedbackModal(true)
+    }
+  }, [course?.status, feedbackRecord, editingFeedback])
 
   const expandModule = async (mod: Module) => {
     if (expandedMod === mod.id) { setExpandedMod(null); return }
@@ -329,10 +451,108 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
     setSelectedLesson(null)
   }
 
+  const retryModuleCheckpoint = () => {
+    setModuleCheckpointIndex(0)
+    setModuleCheckpointScore(0)
+    setModuleCheckpointSelection('')
+    setModuleCheckpointFeedback(null)
+    setModuleCheckpointPassed(false)
+    setSubView('moduleCheckpoint')
+  }
+
+  const finishModuleCompletion = async () => {
+    if (!selectedModule) return
+
+    const completedModuleId = selectedModule.id
+    resetModuleCheckpointState()
+    await window.aura.educator.completeModule(completedModuleId)
+    await window.aura.motivation.addXP(50)
+
+    const updatedModules = await window.aura.educator.getModules(courseId)
+    setModules(updatedModules)
+
+    const updatedCourse = await window.aura.educator.getCourse(courseId)
+    if (updatedCourse) setCourse(updatedCourse)
+
+    const nextMod = updatedModules.find(m => !m.completed && m.unlocked)
+    if (nextMod) {
+      setSelectedModule(nextMod)
+      setExpandedMod(nextMod.id)
+      const nextLessons = await window.aura.educator.getLessons(nextMod.id)
+      setLessons(nextLessons)
+      const firstLesson = nextLessons.find(l => !l.completed) || nextLessons[0]
+      if (firstLesson) {
+        setLoadingLessonId(firstLesson.id)
+        try {
+          const readyLesson = await hydrateLesson(firstLesson)
+          setSelectedLesson(readyLesson)
+          setSubView('lesson')
+          setLessonLoadError(null)
+        } catch (err: any) {
+          setLessonLoadError(err?.message || 'Could not prepare the lesson right now.')
+          setSelectedLesson(null)
+          setSubView('tree')
+        } finally {
+          setLoadingLessonId(null)
+        }
+        return
+      }
+    }
+
+    setSelectedLesson(null)
+    setSubView('tree')
+  }
+
+  const submitModuleCheckpointAnswer = async () => {
+    if (!moduleCheckpoint || !selectedModule) return
+
+    const currentQuestion = moduleCheckpoint.questions[moduleCheckpointIndex]
+    if (!currentQuestion || !moduleCheckpointSelection) return
+
+    const isCorrect = moduleCheckpointSelection.trim().toLowerCase() === currentQuestion.correctAnswer.trim().toLowerCase()
+    const nextScore = moduleCheckpointScore + (isCorrect ? 1 : 0)
+    const isLastQuestion = moduleCheckpointIndex + 1 >= moduleCheckpoint.questions.length
+
+    setModuleCheckpointScore(nextScore)
+    setModuleCheckpointSelection('')
+
+    if (!isLastQuestion) {
+      setModuleCheckpointFeedback(
+        isCorrect
+          ? currentQuestion.explanation
+          : `Correct answer: ${currentQuestion.correctAnswer}. ${currentQuestion.explanation}`,
+      )
+      setModuleCheckpointIndex((prev) => prev + 1)
+      return
+    }
+
+    if (nextScore >= moduleCheckpointPassCount) {
+      setModuleCheckpointPassed(true)
+      setModuleCheckpointFeedback(
+        moduleCheckpointCards.length > 0
+          ? 'Checkpoint passed. Review the mastery cards to lock it in before moving on.'
+          : 'Checkpoint passed. The next module is now ready.',
+      )
+      if (moduleCheckpointCards.length > 0) {
+        setSubView('moduleFlashcards')
+        return
+      }
+      await finishModuleCompletion()
+      return
+    }
+
+    setModuleCheckpointPassed(false)
+    setModuleCheckpointFeedback(
+      `Checkpoint not passed yet. You need ${moduleCheckpointPassCount}/${moduleCheckpoint.questions.length}. Correct answer: ${currentQuestion.correctAnswer}. ${currentQuestion.explanation}`,
+    )
+  }
+
   const completeLesson = async () => {
     if (!selectedLesson) return
+    await window.aura.educator.completeLesson(selectedLesson.id)
     const updated = lessons.map(l => l.id === selectedLesson.id ? { ...l, completed: true } : l)
     setLessons(updated)
+    setSelectedLesson((prev) => prev ? { ...prev, completed: true } : prev)
     await advanceToNext(updated)
   }
 
@@ -362,43 +582,7 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
         setLoadingLessonId(null)
       }
     } else if (selectedModule) {
-      // All lessons done — complete module and move to next
-      await window.aura.educator.completeModule(selectedModule.id)
-      await window.aura.motivation.addXP(50)
-      const updatedModules = await window.aura.educator.getModules(courseId)
-      setModules(updatedModules)
-
-      // Refresh course progress
-      const updatedCourse = await window.aura.educator.getCourse(courseId)
-      if (updatedCourse) setCourse(updatedCourse)
-
-      // Auto-navigate to first lesson of next module
-      const nextMod = updatedModules.find(m => !m.completed && m.unlocked)
-      if (nextMod) {
-        setSelectedModule(nextMod)
-        setExpandedMod(nextMod.id)
-        const nextLessons = await window.aura.educator.getLessons(nextMod.id)
-        setLessons(nextLessons)
-        const firstLesson = nextLessons.find(l => !l.completed) || nextLessons[0]
-        if (firstLesson) {
-          setLoadingLessonId(firstLesson.id)
-          try {
-            const readyLesson = await hydrateLesson(firstLesson)
-            setSelectedLesson(readyLesson)
-            setSubView('lesson')
-            setLessonLoadError(null)
-          } catch (err: any) {
-            setLessonLoadError(err?.message || 'Could not prepare the lesson right now.')
-            setSelectedLesson(null)
-            setSubView('tree')
-          } finally {
-            setLoadingLessonId(null)
-          }
-          return
-        }
-      }
-      setSelectedLesson(null)
-      setSubView('tree')
+      await startModuleCheckpoint(selectedModule, updatedLessons)
     }
   }
 
@@ -646,11 +830,315 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
   if (subView === 'lessonPractice' && selectedLesson) {
     return (
       <LessonPractice
+        courseId={courseId}
         lesson={selectedLesson}
         nextTeaser={buildNextTeaser(selectedLesson)}
         onComplete={completeLesson}
         onReview={() => { void reviewLesson() }}
+        onOpenGameMix={onOpenGames}
+        gameReinforcement={gameReinforcement?.lessonId === selectedLesson.id ? gameReinforcement : null}
+        onAcknowledgeGameReinforcement={onAcknowledgeGameReinforcement}
       />
+    )
+  }
+
+  if (subView === 'moduleCheckpoint' && selectedModule) {
+    const currentQuestion = moduleCheckpoint?.questions[moduleCheckpointIndex] || null
+    const questionCount = moduleCheckpoint?.questions.length || 0
+    const saveSummaryText = moduleCheckpointSaveResult
+      ? `${moduleCheckpointSaveResult.saved} new card${moduleCheckpointSaveResult.saved === 1 ? '' : 's'} saved${moduleCheckpointSaveResult.duplicates > 0 ? ` · ${moduleCheckpointSaveResult.duplicates} already existed` : ''}`
+      : null
+
+    return (
+      <div style={{
+        minHeight: '100%',
+        padding: '28px 22px 40px',
+        background: 'radial-gradient(circle at top, rgba(196,154,60,0.14), rgba(9,13,11,0.98) 62%)',
+        color: '#f4eac8',
+      }}>
+        <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <button
+            onClick={() => { setSubView('tree'); setSelectedLesson(null) }}
+            style={{
+              alignSelf: 'flex-start',
+              padding: '10px 14px',
+              borderRadius: 999,
+              border: '1px solid rgba(196,154,60,0.18)',
+              background: 'rgba(17,24,20,0.88)',
+              color: 'rgba(245,228,168,0.82)',
+              fontSize: '5px',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Back To Module Map
+          </button>
+
+          <div style={{
+            padding: '20px 22px',
+            borderRadius: 22,
+            border: '1px solid rgba(196,154,60,0.18)',
+            background: 'linear-gradient(180deg, rgba(20,28,24,0.96), rgba(11,16,13,0.96))',
+            boxShadow: '0 22px 48px rgba(0,0,0,0.28)',
+          }}>
+            <div style={{ fontSize: '5px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(196,154,60,0.58)', lineHeight: 2.1 }}>
+              Module-End Checkpoint
+            </div>
+            <h2 style={{ margin: '10px 0 8px', fontSize: '16px', color: '#f9f1d6', lineHeight: 1.35 }}>
+              {selectedModule.title}
+            </h2>
+            <p style={{ margin: 0, fontSize: '6px', lineHeight: 2.05, color: 'rgba(236,226,198,0.78)' }}>
+              Pass {Math.max(1, moduleCheckpointPassCount)}/{Math.max(1, questionCount)} to unlock the next module. As soon as this checkpoint loads, its flashcards are saved into your mastery deck so you can review before retrying if needed.
+            </p>
+            {saveSummaryText && (
+              <div style={{ marginTop: 12, fontSize: '5px', lineHeight: 2, color: 'rgba(130,210,170,0.82)' }}>
+                {saveSummaryText}
+              </div>
+            )}
+            {moduleCheckpointCards.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: '5px', lineHeight: 2, color: 'rgba(210,220,255,0.78)' }}>
+                {moduleCheckpointCards.length} due mastery card{moduleCheckpointCards.length === 1 ? '' : 's'} ready for review.
+              </div>
+            )}
+          </div>
+
+          {moduleCheckpointLoading ? (
+            <div style={{
+              padding: '24px 22px',
+              borderRadius: 22,
+              border: '1px solid rgba(196,154,60,0.16)',
+              background: 'rgba(12,18,15,0.96)',
+              fontSize: '6px',
+              color: 'rgba(245,228,168,0.74)',
+              lineHeight: 2,
+            }}>
+              Preparing a module checkpoint from the lessons you just finished.
+            </div>
+          ) : moduleCheckpointError ? (
+            <div style={{
+              padding: '24px 22px',
+              borderRadius: 22,
+              border: '1px solid rgba(255,148,148,0.16)',
+              background: 'rgba(24,12,12,0.94)',
+              color: 'rgba(255,204,204,0.82)',
+            }}>
+              <div style={{ fontSize: '6px', lineHeight: 2 }}>{moduleCheckpointError}</div>
+              <button
+                onClick={() => { void startModuleCheckpoint(selectedModule, lessons) }}
+                style={{
+                  marginTop: 14,
+                  padding: '10px 14px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,173,173,0.22)',
+                  background: 'rgba(55,22,22,0.92)',
+                  color: 'rgba(255,224,224,0.88)',
+                  fontSize: '5px',
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Retry Checkpoint Load
+              </button>
+            </div>
+          ) : moduleCheckpoint ? (
+            <>
+              <div style={{
+                padding: '20px 22px',
+                borderRadius: 22,
+                border: '1px solid rgba(196,154,60,0.16)',
+                background: 'rgba(12,18,15,0.96)',
+              }}>
+                <div style={{ fontSize: '5px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(196,154,60,0.58)', lineHeight: 2.1 }}>
+                  Anchor Highlights
+                </div>
+                <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+                  {moduleCheckpoint.anchors.map((anchor, index) => (
+                    <div key={`${anchor}-${index}`} style={{
+                      padding: '12px 14px',
+                      borderRadius: 16,
+                      border: '1px solid rgba(196,154,60,0.14)',
+                      background: 'rgba(196,154,60,0.07)',
+                      fontSize: '6px',
+                      lineHeight: 1.9,
+                      color: 'rgba(248,241,216,0.9)',
+                    }}>
+                      {anchor}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {currentQuestion && (
+                <div style={{
+                  padding: '20px 22px',
+                  borderRadius: 22,
+                  border: '1px solid rgba(196,154,60,0.16)',
+                  background: 'rgba(12,18,15,0.96)',
+                }}>
+                  <div style={{ fontSize: '5px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(196,154,60,0.58)', lineHeight: 2.1 }}>
+                    Question {moduleCheckpointIndex + 1} / {questionCount}
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: '8px', lineHeight: 1.8, color: '#f9f1d6' }}>
+                    {currentQuestion.question}
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+                    {currentQuestion.options.map((option) => {
+                      const selected = moduleCheckpointSelection === option
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => setModuleCheckpointSelection(option)}
+                          style={{
+                            textAlign: 'left',
+                            padding: '12px 14px',
+                            borderRadius: 16,
+                            border: selected ? '1px solid rgba(232,197,106,0.42)' : '1px solid rgba(196,154,60,0.14)',
+                            background: selected ? 'rgba(196,154,60,0.14)' : 'rgba(16,22,19,0.92)',
+                            color: selected ? '#fff4cb' : 'rgba(236,226,198,0.86)',
+                            fontSize: '6px',
+                            lineHeight: 1.9,
+                          }}
+                        >
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {moduleCheckpointFeedback && (
+                    <div style={{
+                      marginTop: 14,
+                      padding: '12px 14px',
+                      borderRadius: 16,
+                      border: '1px solid rgba(130,210,170,0.18)',
+                      background: 'rgba(18,36,28,0.84)',
+                      fontSize: '5px',
+                      lineHeight: 2,
+                      color: 'rgba(210,245,224,0.84)',
+                    }}>
+                      {moduleCheckpointFeedback}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                    <button
+                      disabled={!moduleCheckpointSelection}
+                      onClick={() => { void submitModuleCheckpointAnswer() }}
+                      style={{
+                        padding: '11px 16px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(232,197,106,0.24)',
+                        background: 'linear-gradient(135deg, rgba(232,197,106,0.16), rgba(196,154,60,0.08))',
+                        color: '#fff1be',
+                        fontSize: '5px',
+                        letterSpacing: '0.16em',
+                        textTransform: 'uppercase',
+                        opacity: moduleCheckpointSelection ? 1 : 0.55,
+                      }}
+                    >
+                      {moduleCheckpointIndex + 1 >= questionCount ? 'Finish Checkpoint' : 'Lock Answer'}
+                    </button>
+
+                    {moduleCheckpointCards.length > 0 && (
+                      <button
+                        onClick={() => setSubView('moduleFlashcards')}
+                        style={{
+                          padding: '11px 16px',
+                          borderRadius: 999,
+                          border: '1px solid rgba(132,176,255,0.2)',
+                          background: 'rgba(30,45,70,0.72)',
+                          color: 'rgba(220,234,255,0.88)',
+                          fontSize: '5px',
+                          letterSpacing: '0.16em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Open Mastery Cards
+                      </button>
+                    )}
+
+                    {moduleCheckpointFeedback && !moduleCheckpointPassed && moduleCheckpointIndex + 1 >= questionCount && (
+                      <button
+                        onClick={retryModuleCheckpoint}
+                        style={{
+                          padding: '11px 16px',
+                          borderRadius: 999,
+                          border: '1px solid rgba(255,204,153,0.2)',
+                          background: 'rgba(63,38,18,0.8)',
+                          color: 'rgba(255,227,190,0.88)',
+                          fontSize: '5px',
+                          letterSpacing: '0.16em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Retry Checkpoint
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: 12, fontSize: '5px', lineHeight: 2, color: 'rgba(196,154,60,0.48)' }}>
+                    Score locked: {moduleCheckpointScore}/{questionCount}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
+  if (subView === 'moduleFlashcards' && selectedModule) {
+    return (
+      <div style={{
+        minHeight: '100%',
+        padding: '28px 22px 40px',
+        background: 'radial-gradient(circle at top, rgba(96,180,255,0.1), rgba(9,13,11,0.98) 65%)',
+        color: '#f4eac8',
+      }}>
+        <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16, minHeight: 'calc(100vh - 90px)' }}>
+          <div style={{
+            padding: '18px 20px',
+            borderRadius: 22,
+            border: '1px solid rgba(96,180,255,0.16)',
+            background: 'rgba(12,18,22,0.96)',
+          }}>
+            <div style={{ fontSize: '5px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(140,198,255,0.62)', lineHeight: 2.1 }}>
+              Module Mastery Deck
+            </div>
+            <div style={{ marginTop: 10, fontSize: '8px', lineHeight: 1.6, color: '#eef4ff' }}>
+              {selectedModule.title}
+            </div>
+            <p style={{ margin: '8px 0 0', fontSize: '6px', lineHeight: 2, color: 'rgba(216,230,255,0.8)' }}>
+              {moduleCheckpointPassed
+                ? 'Checkpoint passed. Review the saved cards, then continue into the next module when you close the deck.'
+                : 'Review the saved cards, then return to the checkpoint and try again.'}
+            </p>
+          </div>
+
+          <div style={{
+            flex: 1,
+            minHeight: 420,
+            borderRadius: 24,
+            overflow: 'hidden',
+            border: '1px solid rgba(96,180,255,0.16)',
+            background: 'rgba(7,11,15,0.94)',
+          }}>
+            <FlashcardDeck
+              moduleId={selectedModule.id}
+              cards={moduleCheckpointCards}
+              onBack={() => {
+                if (moduleCheckpointPassed) {
+                  void finishModuleCompletion()
+                  return
+                }
+                setSubView('moduleCheckpoint')
+              }}
+            />
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -665,6 +1153,42 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
     { label: 'DIFFICULTY', value: feedbackRecord.difficulty_rating, accent: 'rgba(244,180,130,0.82)' },
     { label: 'CONTINUE', value: feedbackRecord.continue_interest_rating, accent: 'rgba(200,180,255,0.82)' },
   ] : []
+  const reinforcementSummaryText = courseReinforcement
+    ? `${courseReinforcement.verifiedGames}/${courseReinforcement.totalGames} verified game loops · +${courseReinforcement.totalPoints} points${courseReinforcement.seededGames > 0 ? ` · ${courseReinforcement.seededGames} lesson-seeded` : ''}`
+    : null
+
+  const closeFeedbackModal = () => {
+    if (!feedbackRecord || editingFeedback) return
+    setShowFeedbackModal(false)
+    setFeedbackError(null)
+    setRecommendationError(null)
+  }
+
+  const feedbackPanelStyle = showFeedbackModal
+    ? {
+        position: 'fixed' as const,
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 81,
+        width: 'min(860px, calc(100vw - 36px))',
+        maxHeight: 'calc(100vh - 48px)',
+        overflowY: 'auto' as const,
+        marginBottom: 0,
+        padding: '18px 18px 20px',
+        borderRadius: 16,
+        background: 'linear-gradient(135deg, rgba(8,18,12,0.98), rgba(10,14,11,0.99))',
+        border: '1px solid rgba(46,184,122,0.16)',
+        boxShadow: '0 24px 90px rgba(0,0,0,0.45)',
+      }
+    : {
+        marginBottom: 24,
+        padding: '18px 18px 20px',
+        borderRadius: 16,
+        background: 'linear-gradient(135deg, rgba(8,18,12,0.92), rgba(10,14,11,0.94))',
+        border: '1px solid rgba(46,184,122,0.16)',
+        boxShadow: '0 0 34px rgba(46,184,122,0.08)',
+      }
 
   return (
     <div data-tutorial="course-view-root" className="flex-1 overflow-y-auto aura-cv-scroll">
@@ -913,14 +1437,40 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
         <div className="px-pixel-divider-h" />
 
         {course.status === 'completed' && (
-          <div style={{
-            marginBottom: 24,
-            padding: '18px 18px 20px',
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(8,18,12,0.92), rgba(10,14,11,0.94))',
-            border: '1px solid rgba(46,184,122,0.16)',
-            boxShadow: '0 0 34px rgba(46,184,122,0.08)',
-          }}>
+          <div style={feedbackPanelStyle}>
+            {showFeedbackModal && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 14,
+              }}>
+                <div>
+                  <div style={{ fontSize: '5px', color: 'rgba(46,184,122,0.52)', lineHeight: 2, letterSpacing: '0.12em' }}>COMPLETION REVIEW</div>
+                  <div style={{ fontSize: '8px', color: 'rgba(245,228,168,0.88)', lineHeight: 2 }}>{course.title}</div>
+                </div>
+                {feedbackRecord && !editingFeedback ? (
+                  <button onClick={closeFeedbackModal} style={{
+                    fontFamily: "'Press Start 2P', monospace",
+                    fontSize: 5,
+                    lineHeight: 2,
+                    padding: '10px 12px',
+                    borderRadius: 9,
+                    cursor: 'pointer',
+                    background: 'rgba(196,154,60,0.06)',
+                    border: '1px solid rgba(196,154,60,0.14)',
+                    color: 'rgba(232,197,106,0.72)',
+                  }}>
+                    CLOSE
+                  </button>
+                ) : (
+                  <div style={{ fontSize: '5px', color: 'rgba(196,154,60,0.34)', lineHeight: 2 }}>
+                    Save the reflection to leave this review.
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ fontSize: '5px', color: 'rgba(46,184,122,0.56)', lineHeight: 2, letterSpacing: '0.12em' }}>
               COURSE COMPLETE
             </div>
@@ -960,6 +1510,21 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
                     <div style={{ fontSize: '5px', color: 'rgba(196,154,60,0.34)', lineHeight: 2, marginBottom: 6 }}>NOTES</div>
                     <div style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif', fontSize: 15, color: 'rgba(240,230,220,0.78)', lineHeight: 1.55 }}>
                       {feedbackRecord.notes}
+                    </div>
+                  </div>
+                )}
+
+                {reinforcementSummaryText && (
+                  <div style={{
+                    marginBottom: 14,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    background: 'rgba(96,180,255,0.04)',
+                    border: '1px solid rgba(96,180,255,0.1)',
+                  }}>
+                    <div style={{ fontSize: '5px', color: 'rgba(96,180,255,0.46)', lineHeight: 2, marginBottom: 6 }}>REINFORCEMENT LOOP</div>
+                    <div style={{ fontFamily: 'Trebuchet MS, Segoe UI, sans-serif', fontSize: 14, color: 'rgba(220,235,245,0.76)', lineHeight: 1.55 }}>
+                      {reinforcementSummaryText}
                     </div>
                   </div>
                 )}
@@ -1207,6 +1772,7 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
             const isExpanded = expandedMod === mod.id
             const isLocked = !mod.unlocked && !devFullAccess
             const isDone = mod.completed
+            const checkpointReady = isExpanded && isModuleReadyForCheckpoint(mod, lessons)
 
             return (
               <div key={mod.id} className="px-module-node" style={{ animationDelay: `${i * 80}ms` }}>
@@ -1247,6 +1813,30 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
                       </div>
                     ))}
 
+                    {checkpointReady && (
+                      <div style={{ marginLeft: 20, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <button
+                          onClick={() => { void startModuleCheckpoint(mod, lessons) }}
+                          style={{
+                            alignSelf: 'flex-start',
+                            padding: '10px 14px',
+                            borderRadius: 999,
+                            border: '1px solid rgba(232,197,106,0.22)',
+                            background: 'linear-gradient(135deg, rgba(232,197,106,0.14), rgba(196,154,60,0.08))',
+                            color: '#fff1be',
+                            fontSize: '5px',
+                            letterSpacing: '0.16em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Take Module Checkpoint
+                        </button>
+                        <div style={{ fontSize: '5px', color: 'rgba(196,154,60,0.42)', lineHeight: 2 }}>
+                          All lessons are done. Finish the module checkpoint to unlock the next step.
+                        </div>
+                      </div>
+                    )}
+
                     {/* Completed badge */}
                     {mod.completed && (
                       <div style={{ marginLeft: 20, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1276,6 +1866,16 @@ export default function CourseView({ courseId, onBack, entryMode = 'tree', onSta
           </div>
         </div>
       </div>
+
+      {showFeedbackModal && course.status === 'completed' && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 80,
+          background: 'rgba(3,7,5,0.82)',
+          backdropFilter: 'blur(8px)',
+        }} />
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { createHmac, randomBytes } from 'crypto'
 import { getDB, saveDB } from './db'
-import type { GameType, GameDifficulty, GameChallenge, GameResult, GameAction } from '../../shared/types'
+import type { GameType, GameDifficulty, GameChallenge, GameChallengeSeed, GameResult, GameAction } from '../../shared/types'
 
 // Secret key for HMAC — generated once per app install, stored in memory
 // Even if someone inspects the renderer, they can't forge scores without this
@@ -22,6 +22,41 @@ const DIFFICULTY_CONFIG: Record<GameDifficulty, { timeMultiplier: number; rangeM
   x2: { timeMultiplier: 0.75, rangeMultiplier: 2, countMultiplier: 1.5, pointsMultiplier: 2 },
   x3: { timeMultiplier: 0.6, rangeMultiplier: 3, countMultiplier: 2, pointsMultiplier: 3 },
   x5: { timeMultiplier: 0.45, rangeMultiplier: 5, countMultiplier: 2.5, pointsMultiplier: 5 }
+}
+
+function normalizeSeedText(value: unknown, maxLength = 24): string | null {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (normalized.length < 3 || normalized.length > maxLength) {
+    return null
+  }
+
+  return normalized.toUpperCase()
+}
+
+function buildSeedWordPool(seed?: GameChallengeSeed | null): string[] {
+  if (!seed) return []
+
+  const tokens = [
+    ...(Array.isArray(seed.words) ? seed.words : []),
+    ...(Array.isArray(seed.phrases) ? seed.phrases.flatMap((phrase) => String(phrase || '').split(/\s+/)) : []),
+  ]
+
+  const unique: string[] = []
+  for (const token of tokens) {
+    const normalized = normalizeSeedText(token, 16)
+    if (!normalized) continue
+    if (unique.includes(normalized)) continue
+    unique.push(normalized)
+    if (unique.length >= 14) break
+  }
+
+  return unique
 }
 
 function generateMathSpeed(diff: GameDifficulty = 'normal'): { data: any; answers: any[] } {
@@ -110,15 +145,19 @@ function generateReactionTime(diff: GameDifficulty = 'normal'): { data: any; ans
   }
 }
 
-function generateWordScramble(diff: GameDifficulty = 'normal'): { data: any; answers: any[] } {
-  const words = [
+function generateWordScramble(diff: GameDifficulty = 'normal', seed?: GameChallengeSeed | null): { data: any; answers: any[] } {
+  const defaultWords = [
     'PROGRAM', 'LOGIC', 'MEMORY', 'BRAIN', 'INTELLIGENCE',
     'ALGORITHM', 'FUNCTION', 'VARIABLE', 'SCIENCE', 'THINKING',
     'SOLVING', 'ATTENTION', 'FOCUS', 'EDUCATION', 'LEARNING'
   ]
   const cfg = DIFFICULTY_CONFIG[diff]
   const count = Math.floor(10 * cfg.countMultiplier)
-  const selected = words.sort(() => Math.random() - 0.5).slice(0, count)
+  const seededWords = buildSeedWordPool(seed)
+  const wordPool = seededWords.length >= 4
+    ? Array.from(new Set([...seededWords, ...defaultWords]))
+    : defaultWords
+  const selected = wordPool.sort(() => Math.random() - 0.5).slice(0, count)
   const scrambled = selected.map(w => {
     const arr = w.split('')
     for (let i = arr.length - 1; i > 0; i--) {
@@ -130,7 +169,7 @@ function generateWordScramble(diff: GameDifficulty = 'normal'): { data: any; ans
     return arr.join('')
   })
   return {
-    data: { words: scrambled, timeLimit: Math.floor(120000 * cfg.timeMultiplier), difficulty: diff },
+    data: { words: scrambled, timeLimit: Math.floor(120000 * cfg.timeMultiplier), difficulty: diff, seeded: seededWords.length > 0 },
     answers: selected
   }
 }
@@ -164,7 +203,7 @@ function generateColorStroop(diff: GameDifficulty = 'normal'): { data: any; answ
   }
 }
 
-const GENERATORS: Record<GameType, (diff: GameDifficulty) => { data: any; answers: any[] }> = {
+const GENERATORS: Record<GameType, (diff: GameDifficulty, seed?: GameChallengeSeed | null) => { data: any; answers: any[] }> = {
   math_speed: generateMathSpeed,
   memory_tiles: generateMemoryTiles,
   pattern_match: generatePatternMatch,
@@ -343,12 +382,12 @@ function queryOne(sql: string, params: any[] = []): any | null {
 
 export function registerGamesIpc() {
   // Start a new challenge — all game data generated server-side
-  ipcMain.handle('games:startChallenge', async (_event, gameType: GameType, difficulty: GameDifficulty = 'normal') => {
+  ipcMain.handle('games:startChallenge', async (_event, gameType: GameType, difficulty: GameDifficulty = 'normal', seed?: GameChallengeSeed | null) => {
     if (!GENERATORS[gameType]) throw new Error('Invalid game type')
 
     const id = randomBytes(16).toString('hex')
     const now = Date.now()
-    const { data, answers } = GENERATORS[gameType](difficulty)
+    const { data, answers } = GENERATORS[gameType](difficulty, seed)
     const hash = signChallenge(id, gameType, now)
 
     const challenge: GameChallenge = {

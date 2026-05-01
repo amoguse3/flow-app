@@ -255,6 +255,19 @@ export interface CourseRecommendation {
   source?: 'heuristic' | 'ai'
 }
 
+export interface CourseReinforcementSummary {
+  courseId: number
+  totalGames: number
+  verifiedGames: number
+  totalPoints: number
+  seededGames: number
+  latestGameType?: GameType | null
+}
+
+export interface CourseFeedbackContext {
+  reinforcementSummary?: CourseReinforcementSummary | null
+}
+
 export interface CourseFeedbackSubmission {
   overall_rating: number
   clarity_rating: number
@@ -271,6 +284,7 @@ export interface CourseFeedbackRecord extends CourseFeedbackSubmission {
   created_at: string
   updated_at: string
   recommendation: CourseRecommendation | null
+  context?: CourseFeedbackContext | null
 }
 
 export interface CourseFeedbackAnalyticsItem extends CourseFeedbackRecord {
@@ -337,6 +351,7 @@ export interface LessonQuizQuestion {
 
 export type LessonPracticeKind = 'mcq' | 'short_text'
 export type LessonPracticeDifficulty = 'core' | 'stretch'
+export type LessonPracticeMode = 'default' | 'language-learning'
 
 export interface LessonPracticeExercise {
   id: string
@@ -356,6 +371,10 @@ export interface LessonPracticeExercise {
 export interface LessonPracticeSet {
   intro: string
   objective: string
+  mode?: LessonPracticeMode
+  modeLabel?: string | null
+  recommendedGames?: GameType[]
+  gameSeed?: GameChallengeSeed | null
   isCoding: boolean
   requiredToPass: number
   exercises: LessonPracticeExercise[]
@@ -374,6 +393,25 @@ export interface LessonReward {
   lessonsUntilNextMilestone: number
   milestoneLabel: string
   celebrationText: string
+}
+
+export interface BrainGameCompletion {
+  gameType: GameType
+  verified: boolean
+  score: number
+  points: number
+  completedAt: number
+}
+
+export interface LessonPracticeGameLaunch {
+  courseId: number
+  lessonId: number
+  gameType?: GameType
+  gameSeed?: GameChallengeSeed | null
+}
+
+export interface LessonPracticeReinforcement extends BrainGameCompletion {
+  lessonId: number
 }
 
 export interface Flashcard {
@@ -423,6 +461,14 @@ export interface FlashcardSaveResult {
 export type GameType = 'math_speed' | 'memory_tiles' | 'pattern_match' | 'reaction_time' | 'word_scramble' | 'color_stroop'
 
 export type GameDifficulty = 'normal' | 'x2' | 'x3' | 'x5'
+
+export interface GameChallengeSeed {
+  source?: 'lesson-practice'
+  topic?: string | null
+  targetLanguage?: string | null
+  words?: string[]
+  phrases?: string[]
+}
 
 export interface GameChallenge {
   id: string           // HMAC-signed challenge ID from main process
@@ -549,8 +595,8 @@ export interface AuraAPI {
     resetLessonRecall: (lessonId: number) => Promise<{ ok: boolean }>
     generateCourse: (request: string | CourseGenerationRequest) => Promise<CourseGenerationStartResult>
     retryCourseGeneration: (courseId: number) => Promise<CourseGenerationStartResult>
-    submitCourseFeedback: (courseId: number, feedback: CourseFeedbackSubmission) => Promise<CourseFeedbackRecord>
-    refineCourseRecommendation: (courseId: number) => Promise<CourseRecommendation>
+    submitCourseFeedback: (courseId: number, feedback: CourseFeedbackSubmission, context?: CourseFeedbackContext | null) => Promise<CourseFeedbackRecord>
+    refineCourseRecommendation: (courseId: number, context?: CourseFeedbackContext | null) => Promise<CourseRecommendation>
     onCourseGenToken: (callback: (data: CourseGenerationEvent) => void) => () => void
     explainLesson: (lessonId: number) => Promise<void>
     onLessonToken: (callback: (data: ChatTokenEvent) => void) => () => void
@@ -564,6 +610,7 @@ export interface AuraAPI {
     generateLessonQuiz: (lessonId: number) => Promise<LessonQuizQuestion[]>
     generateLessonPractice: (lessonId: number) => Promise<LessonPracticeSet>
     generateTeacherCheckpoint: (lessonId: number, focus?: string) => Promise<TeacherCheckpoint>
+    generateModuleCheckpoint: (moduleId: number) => Promise<TeacherCheckpoint>
     saveTeacherCheckpointFlashcards: (lessonId: number, flashcards: TeacherCheckpointFlashcard[]) => Promise<FlashcardSaveResult>
     reviewFlashcard: (id: number, quality: number) => Promise<{ ok: boolean }>
   }
@@ -572,7 +619,7 @@ export interface AuraAPI {
     saveSettings: (settings: VoiceSettings) => Promise<void>
   }
   games: {
-    startChallenge: (gameType: GameType, difficulty?: GameDifficulty) => Promise<GameChallenge>
+    startChallenge: (gameType: GameType, difficulty?: GameDifficulty, seed?: GameChallengeSeed | null) => Promise<GameChallenge>
     submitResult: (result: GameResult) => Promise<{ verified: boolean; score: number; points: number }>
     getDailyScores: () => Promise<GameScore[]>
     getLeaderboard: (days?: number) => Promise<DailyLeaderboard[]>

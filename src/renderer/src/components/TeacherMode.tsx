@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Course, CourseFeedbackRecord, CourseFeedbackSubmission, CourseFamiliarity, CourseIntakeQuestion, CourseIntakeSession, Module, Lesson, ChatTokenEvent, LessonReward, TeacherCheckpoint } from '../../../../shared/types'
+import type { Course, CourseFeedbackRecord, CourseFeedbackSubmission, CourseFamiliarity, CourseIntakeQuestion, CourseIntakeSession, CourseReinforcementSummary, Module, Lesson, ChatTokenEvent, LessonReward, TeacherCheckpoint, LessonPracticeGameLaunch, LessonPracticeReinforcement } from '../../../../shared/types'
 import { playBlip, playDing, playClick, playWhoosh } from '../lib/sounds'
 import LessonSupportPanel from './LessonSupportPanel'
 import LessonPractice from './LessonPractice'
+import LessonRichText from './LessonRichText'
 
 const PX = "'Press Start 2P', monospace"
 const READING = "'Palatino Linotype', 'Book Antiqua', Georgia, serif"
@@ -204,6 +205,10 @@ type CheckpointPromptState = 'idle' | 'preparing' | 'ready'
 interface Props {
   onClose: () => void
   initialCourseId?: number
+  onOpenGames?: (launch: LessonPracticeGameLaunch) => void
+  gameReinforcement?: LessonPracticeReinforcement | null
+  courseReinforcementMap?: Record<number, CourseReinforcementSummary>
+  onAcknowledgeGameReinforcement?: (reinforcement: LessonPracticeReinforcement) => void
 }
 
 function buildTeacherFeedbackDraft(record?: CourseFeedbackRecord | null): CourseFeedbackSubmission {
@@ -226,6 +231,8 @@ function clampCopy(value: unknown, fallback: string, max = 180): string {
 function stripDraftLessonText(value: string): string {
   return String(value || '')
     .replace('[[AURA_PENDING_LESSON]]', '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/^\s*(HOOK|CORE|PROVE IT|RECAP|CLIFFHANGER):\s*/gim, '')
     .replace(/^(Curs|Course):\s.*$/gim, '')
     .replace(/^(Modul|Module):\s.*$/gim, '')
     .replace(/^(Lecția|Lectia|Lesson)\s\d+:\s.*$/gim, '')
@@ -396,7 +403,7 @@ function buildTeacherLessonBlocks(raw: string): TeacherLessonBlock[] {
 // ═════════════════════════════════════════════════════════════════════════════
 // MAIN — LESSON BOARD (no chat, teacher writes on the board)
 // ═════════════════════════════════════════════════════════════════════════════
-export default function TeacherMode({ onClose, initialCourseId }: Props) {
+export default function TeacherMode({ onClose, initialCourseId, onOpenGames, gameReinforcement, courseReinforcementMap, onAcknowledgeGameReinforcement }: Props) {
   // ─── State ──────────────────────────────────────────────────────────────
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -476,6 +483,10 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
   const [recommendationError, setRecommendationError] = useState<string | null>(null)
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
   const [refiningRecommendation, setRefiningRecommendation] = useState(false)
+  const courseReinforcement = (selectedCourse?.id ? courseReinforcementMap?.[selectedCourse.id] : null) || courseFeedbackRecord?.context?.reinforcementSummary || null
+  const reinforcementSummaryText = courseReinforcement
+    ? `${courseReinforcement.verifiedGames}/${courseReinforcement.totalGames} verified game loops · +${courseReinforcement.totalPoints} points${courseReinforcement.seededGames > 0 ? ` · ${courseReinforcement.seededGames} lesson-seeded` : ''}`
+    : null
 
   // ─── Refs sync ──────────────────────────────────────────────────────────
   const updateStep = (s: BoardStep) => { boardStepRef.current = s; setBoardStep(s) }
@@ -917,7 +928,11 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
     setFeedbackError(null)
     setRecommendationError(null)
     try {
-      const saved = await window.aura.educator.submitCourseFeedback(selectedCourse.id, courseFeedbackDraft)
+      const saved = await window.aura.educator.submitCourseFeedback(
+        selectedCourse.id,
+        courseFeedbackDraft,
+        courseReinforcement ? { reinforcementSummary: courseReinforcement } : null,
+      )
       setCourseFeedbackRecord(saved)
       setCourseFeedbackDraft(buildTeacherFeedbackDraft(saved))
     } catch (error: any) {
@@ -933,8 +948,15 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
     setRefiningRecommendation(true)
     setRecommendationError(null)
     try {
-      const recommendation = await window.aura.educator.refineCourseRecommendation(selectedCourse.id)
-      setCourseFeedbackRecord((prev) => prev ? { ...prev, recommendation } : prev)
+      const recommendation = await window.aura.educator.refineCourseRecommendation(
+        selectedCourse.id,
+        courseReinforcement ? { reinforcementSummary: courseReinforcement } : null,
+      )
+      setCourseFeedbackRecord((prev) => prev ? {
+        ...prev,
+        recommendation,
+        context: courseReinforcement ? { reinforcementSummary: courseReinforcement } : (prev.context || null),
+      } : prev)
     } catch (error: any) {
       setRecommendationError(String(error?.message || 'Could not refine the recommendation right now.'))
     } finally {
@@ -1360,6 +1382,13 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
                 <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(196,154,60,0.035)', border: '1px solid rgba(196,154,60,0.1)' }}>
                   <div style={{ fontFamily: PX, fontSize: 4.8, color: 'rgba(196,154,60,0.42)', lineHeight: 2, marginBottom: 6 }}>NOTES</div>
                   <div style={{ fontFamily: UI, fontSize: 15, color: 'rgba(240,230,220,0.82)', lineHeight: 1.55 }}>{courseFeedbackRecord.notes}</div>
+                </div>
+              )}
+
+              {reinforcementSummaryText && (
+                <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(96,180,255,0.04)', border: '1px solid rgba(96,180,255,0.1)' }}>
+                  <div style={{ fontFamily: PX, fontSize: 4.8, color: 'rgba(96,180,255,0.46)', lineHeight: 2, marginBottom: 6 }}>REINFORCEMENT LOOP</div>
+                  <div style={{ fontFamily: UI, fontSize: 15, color: 'rgba(220,235,245,0.76)', lineHeight: 1.55 }}>{reinforcementSummaryText}</div>
                 </div>
               )}
 
@@ -1879,94 +1908,7 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
                       </span>
                     </div>
                   )}
-                  {lessonDisplayText && (
-                    <div style={{ display: 'grid', gap: 16 }}>
-                      {buildTeacherLessonBlocks(lessonDisplayText).map((block, index) => {
-                        if (block.kind === 'heading') {
-                          return (
-                            <div key={index} style={{
-                              fontFamily: PX,
-                              fontSize: tSize(5.4),
-                              color: 'rgba(200,180,40,0.68)',
-                              letterSpacing: '0.08em',
-                              lineHeight: 1.9,
-                              textAlign: 'center',
-                            }}>
-                              {block.text}
-                            </div>
-                          )
-                        }
-
-                        if (block.kind === 'code') {
-                          return (
-                            <pre key={index} style={{
-                              margin: 0,
-                              padding: '16px 18px',
-                              borderRadius: 16,
-                              background: 'rgba(2,9,4,0.72)',
-                              border: '1px solid rgba(196,154,60,0.12)',
-                              color: 'rgba(245,228,168,0.82)',
-                              fontFamily: "'Cascadia Mono', 'Consolas', monospace",
-                              fontSize: lessonSize(15),
-                              lineHeight: 1.55,
-                              whiteSpace: 'pre-wrap',
-                              textAlign: 'left',
-                            }}>
-                              {block.text}
-                            </pre>
-                          )
-                        }
-
-                        if (block.kind === 'callout') {
-                          return (
-                            <div key={index} style={{
-                              padding: '16px 18px',
-                              borderRadius: 16,
-                              background: 'linear-gradient(135deg, rgba(232,197,106,0.08), rgba(40,180,120,0.06))',
-                              border: '1px solid rgba(196,154,60,0.12)',
-                            }}>
-                              <div style={{ fontFamily: PX, fontSize: tSize(4.3), color: 'rgba(200,180,40,0.46)', lineHeight: 1.8, letterSpacing: '0.08em', marginBottom: 8 }}>
-                                ANALOGY / EXPLANATION
-                              </div>
-                              <div style={{ fontFamily: UI, fontSize: lessonSize(18), color: 'rgba(235,225,205,0.8)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-                                {block.text}
-                              </div>
-                            </div>
-                          )
-                        }
-
-                        if (block.kind === 'intro') {
-                          return (
-                            <div key={index} style={{
-                              fontFamily: READING,
-                              fontSize: lessonSize(24),
-                              color: 'rgba(245,228,168,0.86)',
-                              lineHeight: 1.55,
-                              whiteSpace: 'pre-wrap',
-                              maxWidth: 620,
-                              margin: '0 auto',
-                            }}>
-                              {block.text}
-                            </div>
-                          )
-                        }
-
-                        return (
-                          <div key={index} style={{
-                            fontFamily: UI,
-                            fontSize: lessonSize(18),
-                            color: 'rgba(220,230,210,0.8)',
-                            lineHeight: 1.68,
-                            whiteSpace: 'pre-wrap',
-                            maxWidth: 640,
-                            margin: '0 auto',
-                          }}>
-                            {block.text}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                  {lessonDisplayText && <LessonRichText content={lessonDisplayText} variant="teacher" />}
                   {streamText && (
                     <div style={{
                       fontFamily: PX, fontSize: tSize(4.2), color: 'rgba(200,180,40,0.44)',
@@ -2410,6 +2352,7 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
                 {recallStage === 'practice' && selectedLessonRef.current && (
                   <div style={{ animation: 'stageRise .45s ease forwards' }}>
                     <LessonPractice
+                      courseId={Number(selectedCourse?.id || 0)}
                       lesson={selectedLessonRef.current}
                       nextTeaser={nextTeacherTeaser}
                       onReview={() => {
@@ -2422,6 +2365,9 @@ export default function TeacherMode({ onClose, initialCourseId }: Props) {
                         showXP(reward.totalXp)
                       }}
                       onComplete={continueAfterCheckpoint}
+                      onOpenGameMix={onOpenGames}
+                      gameReinforcement={gameReinforcement?.lessonId === selectedLessonRef.current.id ? gameReinforcement : null}
+                      onAcknowledgeGameReinforcement={onAcknowledgeGameReinforcement}
                     />
                   </div>
                 )}

@@ -3,6 +3,7 @@ import type {
   AuraAPI,
   ChatTokenEvent,
   Course,
+  CourseFeedbackContext,
   CourseFeedbackAnalytics,
   CourseFeedbackAnalyticsItem,
   CourseFeedbackRecord,
@@ -14,12 +15,14 @@ import type {
   CourseIntakeAnswer,
   CourseIntakeQuestion,
   CourseIntakeSession,
+  CourseReinforcementSummary,
   CourseRecommendation,
   CourseRecommendationDirection,
   DailyLeaderboard,
   Flashcard,
   FlashcardSaveResult,
   GameChallenge,
+  GameChallengeSeed,
   GameDifficulty,
   GamePoints,
   GameResult,
@@ -28,6 +31,7 @@ import type {
   Lesson,
   LessonPracticeSet,
   LessonQuizQuestion,
+  LessonReward,
   MemoryKind,
   MemoryRecord,
   Message,
@@ -47,6 +51,7 @@ import type {
 const STORAGE_KEY = 'aura-browser-state-v1'
 const DAY_MS = 24 * 60 * 60 * 1000
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000
+const SUPPORTED_GAME_TYPES: GameType[] = ['math_speed', 'memory_tiles', 'pattern_match', 'reaction_time', 'word_scramble', 'color_stroop']
 
 type TokenChannel = 'chat:token' | 'educator:courseGenToken' | 'educator:lessonToken' | 'educator:clarifyToken' | 'overlay:chatMessage'
 
@@ -487,7 +492,7 @@ function normalizeCourseRequest(request: string | CourseGenerationRequest): { to
   }
 }
 
-function buildLessonReward(state: BrowserState, lessonId: number): MotivationState['lastLessonReward'] {
+function buildLessonReward(state: BrowserState, lessonId: number): LessonReward {
   const completedLessons = state.lessons.filter((lesson) => lesson.completed).length
   const milestoneSize = 5
   const milestoneReached = completedLessons > 0 && completedLessons % milestoneSize === 0
@@ -511,19 +516,125 @@ function buildLessonReward(state: BrowserState, lessonId: number): MotivationSta
   }
 }
 
+function normalizeFeedbackContextForCourse(
+  courseId: number,
+  context?: CourseFeedbackContext | null,
+): CourseFeedbackContext | null {
+  const summary = context?.reinforcementSummary
+  if (!summary) return null
+
+  const normalizedGameType = String(summary.latestGameType || '')
+  const latestGameType = SUPPORTED_GAME_TYPES.includes(normalizedGameType as GameType)
+    ? normalizedGameType as GameType
+    : null
+
+  const reinforcementSummary: CourseReinforcementSummary = {
+    courseId,
+    totalGames: Math.max(0, Math.round(Number(summary.totalGames || 0))),
+    verifiedGames: Math.max(0, Math.round(Number(summary.verifiedGames || 0))),
+    totalPoints: Math.max(0, Math.round(Number(summary.totalPoints || 0))),
+    seededGames: Math.max(0, Math.round(Number(summary.seededGames || 0))),
+    latestGameType,
+  }
+
+  return { reinforcementSummary }
+}
+
+function mergeFeedbackContextForCourse(
+  courseId: number,
+  current?: CourseFeedbackContext | null,
+  next?: CourseFeedbackContext | null,
+): CourseFeedbackContext | null {
+  return normalizeFeedbackContextForCourse(courseId, next) || normalizeFeedbackContextForCourse(courseId, current)
+}
+
+function normalizeSeedToken(value: unknown, maxLength = 16): string | null {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (normalized.length < 3 || normalized.length > maxLength) {
+    return null
+  }
+
+  return normalized.toUpperCase()
+}
+
+function buildSeedWordPool(seed?: GameChallengeSeed | null): string[] {
+  if (!seed) return []
+
+  const tokens = [
+    ...(Array.isArray(seed.words) ? seed.words : []),
+    ...(Array.isArray(seed.phrases) ? seed.phrases.flatMap((phrase) => String(phrase || '').split(/\s+/)) : []),
+  ]
+
+  const unique: string[] = []
+  for (const token of tokens) {
+    const normalized = normalizeSeedToken(token)
+    if (!normalized || unique.includes(normalized)) continue
+    unique.push(normalized)
+    if (unique.length >= 12) break
+  }
+
+  return unique
+}
+
+function scrambleWord(word: string): string {
+  const chars = word.split('')
+  for (let index = chars.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[chars[index], chars[swapIndex]] = [chars[swapIndex], chars[index]]
+  }
+  return chars.join('')
+}
+
+function pickCourseRecommendationDirection(feedback: CourseFeedbackSubmission): CourseRecommendationDirection {
+  if (feedback.continue_interest_rating <= 4) {
+    return 'adjacent'
+  }
+  if (feedback.difficulty_rating >= 8 || feedback.clarity_rating <= 5) {
+    return 'reinforce'
+  }
+  if (feedback.retention_rating <= 5) {
+    return 'practice'
+  }
+  if (
+    feedback.overall_rating >= 8
+    && feedback.clarity_rating >= 7
+    && feedback.retention_rating >= 7
+    && feedback.continue_interest_rating >= 7
+    && feedback.difficulty_rating <= 6
+  ) {
+    return 'advance'
+  }
+  return feedback.retention_rating < 7 ? 'practice' : 'advance'
+}
+
 function buildCourseRecommendation(topic: string, direction: CourseRecommendationDirection): CourseRecommendation {
+  const safeTopic = topic.trim() || 'your topic'
+  const nextTopic = direction === 'reinforce'
+    ? `${safeTopic}: stronger foundations and worked examples`
+    : direction === 'practice'
+      ? `${safeTopic}: recall drills and applied practice`
+      : direction === 'adjacent'
+        ? `${safeTopic}: lighter real-world applications`
+        : `${safeTopic}: deeper applications and harder decisions`
+
   return {
-    topic: `${topic} next`,
-    title: `Next step after ${topic}`,
+    topic: nextTopic,
+    title: nextTopic,
     reason: direction === 'advance'
-      ? 'You rated the course strongly enough to move into a harder slice.'
+      ? 'Your signals are strong enough to level up without repeating the same path.'
       : direction === 'practice'
-        ? 'A tighter practice loop would probably help retention.'
+        ? 'A tighter practice loop would probably help retention before you climb further.'
         : direction === 'adjacent'
-          ? 'An adjacent topic would keep momentum while widening the map.'
-          : 'A reinforcement pass would likely make the basics more stable.',
+          ? 'An adjacent topic would keep momentum while making the next step feel lighter.'
+          : 'A reinforcement pass would likely make the basics more stable before the next jump.',
     direction,
-    confidence: 0.72,
+    confidence: direction === 'advance' ? 84 : direction === 'practice' ? 76 : direction === 'adjacent' ? 68 : 74,
     source: 'heuristic',
   }
 }
@@ -642,6 +753,60 @@ function buildCheckpoint(lesson: Lesson, focus?: string): TeacherCheckpoint {
     flashcards: [
       { front: `${focusText}: what is it?`, back: 'A practical concept you can name and apply deliberately.' },
       { front: `${focusText}: first mistake to avoid?`, back: 'Using it without knowing when it actually fits.' },
+    ],
+  }
+}
+
+function buildModuleCheckpoint(module: Module, lessons: Lesson[]): TeacherCheckpoint {
+  const orderedLessons = [...lessons].sort((left, right) => left.order_num - right.order_num)
+  const opener = orderedLessons[0]?.title || module.title
+  const closer = orderedLessons[orderedLessons.length - 1]?.title || module.title
+
+  return {
+    anchors: [
+      `Name the throughline of ${module.title}.`,
+      `Connect ${opener} to ${closer}.`,
+      `Say the mistake this module prevents.`,
+    ],
+    questions: [
+      {
+        question: `What should remain after ${module.title}?`,
+        options: [
+          'A usable mental model',
+          'A random isolated fact',
+          'Only the lesson order',
+          'A vague feeling with no next step',
+        ],
+        correctAnswer: 'A usable mental model',
+        explanation: 'A module checkpoint should preserve one repeatable move, not loose fragments.',
+      },
+      {
+        question: `What proves you understood ${module.title}?`,
+        options: [
+          'You can apply it to a concrete example',
+          'You can recite one phrase only',
+          'You skip the context',
+          'You ignore the common mistake',
+        ],
+        correctAnswer: 'You can apply it to a concrete example',
+        explanation: 'Transfer matters more than rote recall at the end of a module.',
+      },
+      {
+        question: `What usually breaks retention in ${module.title}?`,
+        options: [
+          'Memorizing details without the decision rule',
+          'Linking one lesson to another',
+          'Reviewing the flashcards later',
+          'Checking one misconception',
+        ],
+        correctAnswer: 'Memorizing details without the decision rule',
+        explanation: 'The checkpoint is meant to keep the decision rule alive, not disconnected details.',
+      },
+    ],
+    flashcards: [
+      { front: `${module.title}: core`, back: 'Keep one clear throughline across the whole module.' },
+      { front: `${module.title}: proof`, back: 'Show understanding with one concrete use case.' },
+      { front: `${module.title}: mistake`, back: 'Do not memorize fragments without the decision rule.' },
     ],
   }
 }
@@ -773,7 +938,7 @@ function buildTierSnapshot(state: BrowserState): TierLimitSnapshot {
   }
 }
 
-function createGameChallenge(gameType: GameType, difficulty: GameDifficulty): GameChallenge {
+function createGameChallenge(gameType: GameType, difficulty: GameDifficulty, seed?: GameChallengeSeed | null): GameChallenge {
   const startedAt = Date.now()
   const id = `${gameType}-${startedAt}-${Math.random().toString(16).slice(2, 8)}`
   let data: any = {}
@@ -820,7 +985,13 @@ function createGameChallenge(gameType: GameType, difficulty: GameDifficulty): Ga
   }
 
   if (gameType === 'word_scramble') {
-    data = { words: ['AURA', 'FOCUS', 'MEMORY', 'LESSON', 'REVIEW', 'TASK'] }
+    const defaultWords = ['AURA', 'FOCUS', 'MEMORY', 'LESSON', 'REVIEW', 'TASK']
+    const seededWords = buildSeedWordPool(seed)
+    const wordPool = seededWords.length >= 4 ? Array.from(new Set([...seededWords, ...defaultWords])) : defaultWords
+    data = {
+      words: wordPool.slice(0, 6).map((word) => scrambleWord(word)),
+      seeded: seededWords.length > 0,
+    }
     maxTimeMs = 120000
   }
 
@@ -1254,16 +1425,11 @@ export function createBrowserAura(): AuraAPI {
         }, 40)
         return { accepted: true, courseId, message: 'Course is active again.' }
       }),
-      submitCourseFeedback: async (courseId: number, feedback: CourseFeedbackSubmission) => updateState((state) => {
-        const direction: CourseRecommendationDirection = feedback.overall_rating >= 8
-          ? 'advance'
-          : feedback.clarity_rating <= 6
-            ? 'reinforce'
-            : feedback.retention_rating <= 6
-              ? 'practice'
-              : 'adjacent'
+      submitCourseFeedback: async (courseId: number, feedback: CourseFeedbackSubmission, context?: CourseFeedbackContext | null) => updateState((state) => {
+        const direction = pickCourseRecommendationDirection(feedback)
         const course = state.courses.find((item) => item.id === courseId)
         const existing = state.feedback.find((item) => item.course_id === courseId)
+        const mergedContext = mergeFeedbackContextForCourse(courseId, existing?.context, context)
         const record: CourseFeedbackRecord = {
           id: existing?.id || nextId(state, 'feedback'),
           course_id: courseId,
@@ -1276,16 +1442,19 @@ export function createBrowserAura(): AuraAPI {
           created_at: existing?.created_at || nowIso(),
           updated_at: nowIso(),
           recommendation: buildCourseRecommendation(course?.topic || 'the topic', direction),
+          context: mergedContext,
         }
         state.feedback = state.feedback.filter((item) => item.course_id !== courseId)
         state.feedback.push(record)
         return clone(record)
       }),
-      refineCourseRecommendation: async (courseId: number) => updateState((state) => {
+      refineCourseRecommendation: async (courseId: number, context?: CourseFeedbackContext | null) => updateState((state) => {
         const feedback = state.feedback.find((item) => item.course_id === courseId)
         const course = state.courses.find((item) => item.id === courseId)
         if (!feedback || !course) throw new Error('Course feedback not found')
-        const recommendation = buildCourseRecommendation(course.topic, feedback.overall_rating >= 8 ? 'adjacent' : 'practice')
+        const direction = pickCourseRecommendationDirection(feedback)
+        feedback.context = mergeFeedbackContextForCourse(courseId, feedback.context, context)
+        const recommendation = buildCourseRecommendation(course.topic, direction)
         feedback.recommendation = recommendation
         feedback.updated_at = nowIso()
         return clone(recommendation)
@@ -1361,6 +1530,15 @@ export function createBrowserAura(): AuraAPI {
         if (!lesson) throw new Error('Lesson not found')
         return clone(buildCheckpoint(lesson, focus))
       }),
+      generateModuleCheckpoint: async (moduleId: number) => updateState((state) => {
+        const module = state.modules.find((item) => item.id === moduleId)
+        if (!module) throw new Error('Module not found')
+        const lessons = state.lessons
+          .filter((item) => item.module_id === moduleId)
+          .sort((left, right) => left.order_num - right.order_num)
+        if (lessons.length === 0) throw new Error('Module has no lessons')
+        return clone(buildModuleCheckpoint(module, lessons))
+      }),
       saveTeacherCheckpointFlashcards: async (lessonId: number, flashcards: TeacherCheckpointFlashcard[]) => updateState((state) => {
         const lesson = state.lessons.find((item) => item.id === lessonId)
         if (!lesson) throw new Error('Lesson not found')
@@ -1423,7 +1601,7 @@ export function createBrowserAura(): AuraAPI {
       },
     },
     games: {
-      startChallenge: async (gameType: GameType, difficulty: GameDifficulty = 'normal') => createGameChallenge(gameType, difficulty),
+      startChallenge: async (gameType: GameType, difficulty: GameDifficulty = 'normal', seed?: GameChallengeSeed | null) => createGameChallenge(gameType, difficulty, seed),
       submitResult: async (result: GameResult) => updateState((state) => {
         const meta = challengeRegistry.get(result.challengeId)
         const gameType = meta?.gameType || (result.challengeId.split('-')[0] as GameType)

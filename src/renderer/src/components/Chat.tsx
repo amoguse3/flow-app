@@ -4,7 +4,6 @@ import type { Message, UserProfile, AIStatus, ChatTokenEvent } from '../../../..
 import type { ChatAction } from '../lib/chat-actions'
 import { getChatActionLabel, parseChatAssistantResponse } from '../lib/chat-actions'
 import { useLanguage } from '../contexts/LanguageContext'
-import { useLanguage } from '../contexts/LanguageContext'
 
 // ─── design tokens ─────────────────────────────────────────────────────────────
 const PX   = "'Press Start 2P', monospace"

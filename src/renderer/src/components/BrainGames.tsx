@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { GameType, GameDifficulty, GamePoints, DailyLeaderboard } from '../../../../shared/types'
+import type { BrainGameCompletion, GameChallengeSeed, GameType, GameDifficulty, GamePoints, DailyLeaderboard } from '../../../../shared/types'
 import MathSpeedGame from './games/MathSpeedGame'
 import MemoryTilesGame from './games/MemoryTilesGame'
 import PatternMatchGame from './games/PatternMatchGame'
@@ -128,9 +128,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── main component ────────────────────────────────────────────────────────────
 interface Props {
   onBack?: () => void
+  initialGame?: GameType | null
+  initialSeed?: GameChallengeSeed | null
+  onGameComplete?: (result: BrainGameCompletion) => void
 }
 
-export default function BrainGames({ onBack }: Props) {
+export default function BrainGames({ onBack, initialGame = null, initialSeed = null, onGameComplete }: Props) {
   const { t } = useLanguage()
   const [activeGame,     setActiveGame]     = useState<GameType | null>(null)
   const [difficulty,     setDifficulty]     = useState<GameDifficulty>('normal')
@@ -139,6 +142,10 @@ export default function BrainGames({ onBack }: Props) {
   const [leaderboard,    setLeaderboard]    = useState<DailyLeaderboard[]>([])
 
   useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    if (!initialGame) return
+    setActiveGame(initialGame)
+  }, [initialGame])
 
   const loadData = async () => {
     const [pts, lb] = await Promise.all([
@@ -179,7 +186,7 @@ export default function BrainGames({ onBack }: Props) {
       word_scramble: WordScrambleGame,
       color_stroop:  ColorStroopGame,
     }[activeGame]
-    return <GameComponent onEnd={handleGameEnd} difficulty={difficulty} />
+    return <GameComponent onEnd={handleGameEnd} onResult={onGameComplete} challengeSeed={initialSeed} difficulty={difficulty} />
   }
 
   // ── derived values ────────────────────────────────────────────────────────────

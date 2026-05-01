@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { GameChallenge, GameAction } from '../../../../../shared/types'
+import type { BrainGameCompletion, GameChallenge, GameChallengeSeed, GameAction } from '../../../../../shared/types'
 import { useLanguage } from '../../contexts/LanguageContext'
 
-interface Props { onEnd: () => void; difficulty?: import('../../../../../shared/types').GameDifficulty }
+interface Props { onEnd: () => void; onResult?: (result: BrainGameCompletion) => void; challengeSeed?: GameChallengeSeed | null; difficulty?: import('../../../../../shared/types').GameDifficulty }
 
-export default function MathSpeedGame({ onEnd, difficulty = 'normal' }: Props) {
+export default function MathSpeedGame({ onEnd, onResult, challengeSeed = null, difficulty = 'normal' }: Props) {
   const { t } = useLanguage()
   const [challenge, setChallenge] = useState<GameChallenge | null>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -17,8 +17,8 @@ export default function MathSpeedGame({ onEnd, difficulty = 'normal' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    window.aura.games.startChallenge('math_speed', difficulty).then(setChallenge)
-  }, [])
+    window.aura.games.startChallenge('math_speed', difficulty, challengeSeed).then(setChallenge)
+  }, [challengeSeed, difficulty])
 
   useEffect(() => {
     if (!challenge || finished) return
@@ -38,14 +38,16 @@ export default function MathSpeedGame({ onEnd, difficulty = 'normal' }: Props) {
   const endGame = useCallback(async () => {
     if (finished || !challenge) return
     setFinished(true)
+    const completedAt = Date.now()
     const res = await window.aura.games.submitResult({
       challengeId: challenge.id,
       actions: actionsRef.current,
       claimedScore: score,
-      completedAt: Date.now()
+      completedAt,
     })
     setResult(res)
-  }, [finished, challenge, score])
+    onResult?.({ gameType: 'math_speed', verified: res.verified, score: res.score, points: res.points, completedAt })
+  }, [finished, challenge, score, onResult])
 
   const submitAnswer = () => {
     if (!challenge || !input.trim() || finished) return

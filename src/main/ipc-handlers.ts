@@ -384,7 +384,9 @@ export function registerIpcHandlers() {
     getDB().run("DELETE FROM messages WHERE content LIKE '[INSTRUCȚIUNE PROFESORALĂ%'")
     getDB().run("DELETE FROM messages WHERE content LIKE '[INSTRUCTIUNE PROFESORALA%'")
     setState('chatTokenUsage', { used: 0, resetAt: null })
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error('[ipc] Failed to clean legacy chat rows.', err)
+  }
 
   // --- Chat (DeepSeek chat/reasoner) ---
   ipcMain.handle('chat:send', async (event, message: string) => {
@@ -458,7 +460,8 @@ export function registerIpcHandlers() {
           memBlock.push('\n\nDo not list these facts mechanically. Use them only when they connect naturally to what the user says.')
           systemPrompt += memBlock.join('\n')
         }
-      } catch {
+      } catch (err) {
+        console.error('[ipc] Memory injection failed.', err)
         // memory injection is best-effort; never block chat
       }
     }
@@ -488,7 +491,8 @@ export function registerIpcHandlers() {
       if (selfDescribe) {
         addMemory(`Este ${selfDescribe[2]}`, 'semantic', 'fact', 5)
       }
-    } catch {
+    } catch (err) {
+      console.error('[ipc] Episodic memory extraction failed.', err)
       // ignore extraction failures
     }
 

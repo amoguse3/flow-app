@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { GameChallenge, GameAction } from '../../../../../shared/types'
+import type { BrainGameCompletion, GameChallenge, GameChallengeSeed, GameAction } from '../../../../../shared/types'
 import { useLanguage } from '../../contexts/LanguageContext'
 
-interface Props { onEnd: () => void; difficulty?: import('../../../../../shared/types').GameDifficulty }
+interface Props { onEnd: () => void; onResult?: (result: BrainGameCompletion) => void; challengeSeed?: GameChallengeSeed | null; difficulty?: import('../../../../../shared/types').GameDifficulty }
 
-export default function MemoryTilesGame({ onEnd, difficulty = 'normal' }: Props) {
+export default function MemoryTilesGame({ onEnd, onResult, challengeSeed = null, difficulty = 'normal' }: Props) {
   const { t } = useLanguage()
   const [challenge, setChallenge] = useState<GameChallenge | null>(null)
   const [round, setRound] = useState(0)
@@ -20,12 +20,12 @@ export default function MemoryTilesGame({ onEnd, difficulty = 'normal' }: Props)
   // Since answers are server-side, we'll receive tile positions during the challenge
 
   useEffect(() => {
-    window.aura.games.startChallenge('memory_tiles', difficulty).then(c => {
+    window.aura.games.startChallenge('memory_tiles', difficulty, challengeSeed).then(c => {
       setChallenge(c)
       // Start first round
       startRound(c, 0)
     })
-  }, [])
+  }, [challengeSeed, difficulty])
 
   const startRound = (c: GameChallenge, roundIdx: number) => {
     if (roundIdx >= c.data.rounds.length) {
@@ -84,14 +84,16 @@ export default function MemoryTilesGame({ onEnd, difficulty = 'normal' }: Props)
     const ch = c || challenge
     if (finished || !ch) return
     setFinished(true)
+    const completedAt = Date.now()
     const res = await window.aura.games.submitResult({
       challengeId: ch.id,
       actions: actionsRef.current,
       claimedScore: correctRounds * 100,
-      completedAt: Date.now()
+      completedAt,
     })
     setResult(res)
-  }, [finished, challenge, correctRounds])
+    onResult?.({ gameType: 'memory_tiles', verified: res.verified, score: res.score, points: res.points, completedAt })
+  }, [finished, challenge, correctRounds, onResult])
 
   if (!challenge) {
     return (

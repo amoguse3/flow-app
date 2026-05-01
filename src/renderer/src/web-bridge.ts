@@ -1,4 +1,4 @@
-import type { AuraAPI, ChatTokenEvent, CourseFeedbackSubmission, CourseGenerationEvent, CourseGenerationRequest, GameDifficulty, GameResult, GameType, MemoryKind, UserProfile, VoiceSettings } from '../../../shared/types'
+import type { AuraAPI, ChatTokenEvent, CourseFeedbackContext, CourseFeedbackSubmission, CourseGenerationEvent, CourseGenerationRequest, GameChallengeSeed, GameDifficulty, GameResult, GameType, MemoryKind, UserProfile, VoiceSettings } from '../../../shared/types'
 import { createBrowserAura } from './browser-aura'
 
 type AuraEventPayload = ChatTokenEvent | CourseGenerationEvent | string
@@ -184,8 +184,8 @@ function installWebAuraBridge(): void {
       resetLessonRecall: (lessonId) => invoke('educator:resetLessonRecall', lessonId),
       generateCourse: (request: string | CourseGenerationRequest) => invoke('educator:generateCourse', request),
       retryCourseGeneration: (courseId) => invoke('educator:retryCourseGeneration', courseId),
-      submitCourseFeedback: (courseId: number, feedback: CourseFeedbackSubmission) => invoke('educator:submitCourseFeedback', courseId, feedback),
-      refineCourseRecommendation: (courseId: number) => invoke('educator:refineCourseRecommendation', courseId),
+      submitCourseFeedback: (courseId: number, feedback: CourseFeedbackSubmission, context?: CourseFeedbackContext | null) => invoke('educator:submitCourseFeedback', courseId, feedback, context),
+      refineCourseRecommendation: (courseId: number, context?: CourseFeedbackContext | null) => invoke('educator:refineCourseRecommendation', courseId, context),
       onCourseGenToken: (callback: (data: CourseGenerationEvent) => void) => subscribe('educator:courseGenToken', (payload) => callback(payload as CourseGenerationEvent)),
       explainLesson: (lessonId) => invoke<void>('educator:explainLesson', lessonId),
       onLessonToken: (callback: (data: ChatTokenEvent) => void) => subscribe('educator:lessonToken', (payload) => callback(payload as ChatTokenEvent)),
@@ -199,6 +199,7 @@ function installWebAuraBridge(): void {
       generateLessonQuiz: (lessonId) => invoke('educator:generateLessonQuiz', lessonId),
       generateLessonPractice: (lessonId) => invoke('educator:generateLessonPractice', lessonId),
       generateTeacherCheckpoint: (lessonId, focus) => invoke('educator:generateTeacherCheckpoint', lessonId, focus),
+      generateModuleCheckpoint: (moduleId) => invoke('educator:generateModuleCheckpoint', moduleId),
       saveTeacherCheckpointFlashcards: (lessonId, flashcards) => invoke('educator:saveTeacherCheckpointFlashcards', lessonId, flashcards),
       reviewFlashcard: (id, quality) => invoke('educator:reviewFlashcard', id, quality),
     },
@@ -207,7 +208,7 @@ function installWebAuraBridge(): void {
       saveSettings: (settings) => invoke<void>('voice:saveSettings', settings),
     },
     games: {
-      startChallenge: (gameType: GameType, difficulty?: GameDifficulty) => invoke('games:startChallenge', gameType, difficulty),
+      startChallenge: (gameType: GameType, difficulty?: GameDifficulty, seed?: GameChallengeSeed | null) => invoke('games:startChallenge', gameType, difficulty, seed),
       submitResult: (result: GameResult) => invoke('games:submitResult', result),
       getDailyScores: () => invoke('games:getDailyScores'),
       getLeaderboard: (days?: number) => invoke('games:getLeaderboard', days),

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Message } from '../../../../shared/types'
+import LessonRichText from './LessonRichText'
 
 interface Props {
   message: Message
@@ -54,18 +55,29 @@ export default function MessageBubble({ message, isStreaming, streamText }: Prop
           border: `1px solid ${isUser ? 'rgba(217,119,6,0.2)' : 'rgba(42,37,32,0.5)'}`,
           backdropFilter: 'blur(10px)'
         }}>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{
-          color: isUser ? '#f0e6d9' : '#e8e0d8'
-        }}>
-          {text}
-          {isStreaming && (
-            <span className="inline-flex ml-1 gap-0.5">
-              <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0s' }} />
-              <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0.2s' }} />
-              <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0.4s' }} />
-            </span>
-          )}
-        </p>
+        {isUser ? (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#f0e6d9' }}>
+            {text}
+            {isStreaming && (
+              <span className="inline-flex ml-1 gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0s' }} />
+                <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0.2s' }} />
+                <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0.4s' }} />
+              </span>
+            )}
+          </p>
+        ) : (
+          <div style={{ color: '#e8e0d8' }}>
+            <LessonRichText content={text} variant="bubble" />
+            {isStreaming && (
+              <div className="inline-flex mt-2 gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0s' }} />
+                <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0.2s' }} />
+                <span className="w-1 h-1 rounded-full bg-aura-orange" style={{ animation: 'typing-dot 1.4s infinite 0.4s' }} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* User avatar */}

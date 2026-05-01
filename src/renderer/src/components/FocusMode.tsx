@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactElement } from 'react'
 
 // ─── design tokens ─────────────────────────────────────────────────────────────
 const PX = "'Press Start 2P', monospace"
@@ -66,7 +66,7 @@ const FOCUS_CSS = `
 `
 
 // ─── pixel SVG icons for presets ───────────────────────────────────────────────
-const PRESET_ICONS: Record<string, JSX.Element> = {
+const PRESET_ICONS: Record<string, ReactElement> = {
   '🧠': (
     <svg width="28" height="28" viewBox="0 0 22 22" fill="none">
       <rect x="6"  y="2"  width="10" height="8"  rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/>

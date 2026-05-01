@@ -83,11 +83,12 @@ const auraAPI: AuraAPI = {
     completeModule: (moduleId) => ipcRenderer.invoke('educator:completeModule', moduleId),
     deleteCourse: (courseId) => ipcRenderer.invoke('educator:deleteCourse', courseId),
     retryCourseGeneration: (courseId) => ipcRenderer.invoke('educator:retryCourseGeneration', courseId),
-    submitCourseFeedback: (courseId, feedback) => ipcRenderer.invoke('educator:submitCourseFeedback', courseId, feedback),
-    refineCourseRecommendation: (courseId) => ipcRenderer.invoke('educator:refineCourseRecommendation', courseId),
+    submitCourseFeedback: (courseId, feedback, context) => ipcRenderer.invoke('educator:submitCourseFeedback', courseId, feedback, context),
+    refineCourseRecommendation: (courseId, context) => ipcRenderer.invoke('educator:refineCourseRecommendation', courseId, context),
     generateLessonQuiz: (lessonId) => ipcRenderer.invoke('educator:generateLessonQuiz', lessonId),
     generateLessonPractice: (lessonId) => ipcRenderer.invoke('educator:generateLessonPractice', lessonId),
     generateTeacherCheckpoint: (lessonId, focus) => ipcRenderer.invoke('educator:generateTeacherCheckpoint', lessonId, focus),
+    generateModuleCheckpoint: (moduleId) => ipcRenderer.invoke('educator:generateModuleCheckpoint', moduleId),
     saveTeacherCheckpointFlashcards: (lessonId, flashcards) => ipcRenderer.invoke('educator:saveTeacherCheckpointFlashcards', lessonId, flashcards),
     reviewFlashcard: (id, quality) => ipcRenderer.invoke('educator:reviewFlashcard', id, quality)
   },
@@ -96,7 +97,7 @@ const auraAPI: AuraAPI = {
     saveSettings: (settings) => ipcRenderer.invoke('voice:saveSettings', settings)
   },
   games: {
-    startChallenge: (gameType, difficulty) => ipcRenderer.invoke('games:startChallenge', gameType, difficulty),
+    startChallenge: (gameType, difficulty, seed) => ipcRenderer.invoke('games:startChallenge', gameType, difficulty, seed),
     submitResult: (result) => ipcRenderer.invoke('games:submitResult', result),
     getDailyScores: () => ipcRenderer.invoke('games:getDailyScores'),
     getLeaderboard: (days) => ipcRenderer.invoke('games:getLeaderboard', days),

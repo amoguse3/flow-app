@@ -284,7 +284,7 @@ export default function MemoryPanel() {
                           fontSize: 7,
                         }}
                       >
-                        {KIND_LABELS[m.kind].label}
+                        {tl(KIND_LABELS[m.kind].labelKey)}
                       </span>
                       <span>·</span>
                       <span>{formatTimeAgo(m.created_at)}</span>

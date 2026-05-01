@@ -1,0 +1,83 @@
+@keyframes orbBreathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+@keyframes orbSpeak { 0%,100%{transform:scale(1)} 25%{transform:scale(1.1)} 75%{transform:scale(0.96)} }
+@keyframes orbBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes orbSpin { 0%{transform:rotate(0deg) scale(1)} 50%{transform:rotate(180deg) scale(1.04)} 100%{transform:rotate(360deg) scale(1)} }
+@keyframes orbDroop { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(4px) scale(0.97)} }
+@keyframes orbVibrate { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+@keyframes orbFloat { 0%,100%{transform:translateY(0)} 33%{transform:translateY(-6px)} 66%{transform:translateY(3px)} }
+@keyframes orbSleep { 0%,100%{transform:scale(0.95);opacity:0.7} 50%{transform:scale(1);opacity:0.85} }
+@keyframes orbWake { 0%{transform:scale(0.9);opacity:0.5} 50%{transform:scale(1.1);opacity:1} 100%{transform:scale(1);opacity:1} }
+@keyframes orbDance {
+  0%{transform:translateY(0) rotate(0deg) scale(1)}
+  15%{transform:translateY(-6px) rotate(-4deg) scale(1.03)}
+  30%{transform:translateY(0) rotate(0deg) scale(0.98)}
+  45%{transform:translateY(-8px) rotate(5deg) scale(1.04)}
+  60%{transform:translateY(0) rotate(0deg) scale(1)}
+  75%{transform:translateY(-5px) rotate(-3deg) scale(1.02)}
+  90%{transform:translateY(1px) rotate(0deg) scale(0.99)}
+  100%{transform:translateY(0) rotate(0deg) scale(1)}
+}
+@keyframes orbLaugh { 0%,100%{transform:scale(1) rotate(0)} 25%{transform:scale(1.06) rotate(-2deg)} 75%{transform:scale(1.06) rotate(2deg)} }
+@keyframes orbTilt { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(10deg)} }
+@keyframes orbGrow { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+@keyframes orbShiver { 0%,100%{transform:translateX(0)} 10%{transform:translateX(-1.5px)} 20%{transform:translateX(1.5px)} 30%{transform:translateX(-1px)} 40%{transform:translateX(1px)} 50%{transform:translateX(0)} }
+@keyframes orbHeartbeat { 0%,100%{transform:scale(1)} 15%{transform:scale(1.12)} 30%{transform:scale(1)} 45%{transform:scale(1.08)} }
+@keyframes orbLaser { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+@keyframes orbWobble { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-8deg)} 75%{transform:rotate(8deg)} }
+@keyframes orbGlow { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.25)} }
+@keyframes orbElectric { 0%,100%{transform:translateX(0) scale(1)} 10%{transform:translateX(-3px) scale(1.02)} 20%{transform:translateX(3px) scale(0.98)} 30%{transform:translateX(-1px)} 40%{transform:translateX(0) scale(1)} }
+@keyframes orbFade { 0%,100%{opacity:0.6;transform:scale(1)} 50%{transform:scale(1.02);opacity:1} }
+@keyframes orbRise { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-10px) scale(1.06)} }
+
+@keyframes faceSpeak { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+@keyframes mouthTalk { 0%,100%{d:path("M40,56 Q50,62 60,56")} 50%{d:path("M40,56 Q50,68 60,56")} }
+@keyframes eyeLook { 0%,100%{transform:translateX(0)} 30%{transform:translateX(2px)} 70%{transform:translateX(-2px)} }
+@keyframes thinkDot { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:0.8;transform:scale(1.2)} }
+
+@keyframes orbPulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.15)} }
+@keyframes ringPulse { 0%,100%{opacity:0.3;transform:scale(1)} 50%{opacity:0;transform:scale(1.3)} }
+@keyframes ringDance { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(1.08) rotate(5deg)} }
+@keyframes musicBar { 0%{height:4px;opacity:0.4} 100%{height:16px;opacity:0.7} }
+@keyframes particleFloat {
+  0%,100%{transform:translateY(0) scale(1);opacity:0.2}
+  50%{transform:translateY(-18px) scale(1.15);opacity:0.5}
+}
+@keyframes zzz { 0%,100%{transform:translateY(0) scale(1);opacity:0.4} 50%{transform:translateY(-10px) scale(1.2);opacity:0.7} }
+@keyframes dustOrbit { 0%{transform:rotate(0deg) translateX(70px) rotate(0deg)} 100%{transform:rotate(360deg) translateX(70px) rotate(-360deg)} }
+@keyframes saturnRing {
+  0%   { transform: rotateX(70deg) rotateZ(0deg) rotateY(0deg); }
+  20%  { transform: rotateX(45deg) rotateZ(15deg) rotateY(10deg); }
+  40%  { transform: rotateX(75deg) rotateZ(-10deg) rotateY(-15deg); }
+  60%  { transform: rotateX(35deg) rotateZ(20deg) rotateY(5deg); }
+  80%  { transform: rotateX(65deg) rotateZ(-15deg) rotateY(-10deg); }
+  100% { transform: rotateX(70deg) rotateZ(0deg) rotateY(0deg); }
+}
+
+@keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+@keyframes menuPop { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
+@keyframes panelIn { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes indicatorSlideIn { from{opacity:0;transform:translateX(-50%) translateY(-8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+@keyframes indicatorPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+@keyframes achieveMinecraft {
+  0%   { opacity: 0; transform: translateX(120%); }
+  12%  { opacity: 1; transform: translateX(0); }
+  78%  { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(120%); }
+}
+
+.aura-input-wrap { transition: border-color 0.5s ease, box-shadow 0.8s ease; }
+.aura-input-wrap:focus-within {
+  border-color: rgba(255,200,160,0.3) !important;
+  box-shadow: 0 0 25px rgba(255,200,160,0.15), 0 0 50px rgba(255,200,160,0.08), 0 0 80px rgba(255,200,160,0.04), inset 0 0 20px rgba(255,200,160,0.05) !important;
+  animation: inputPulse 3s ease-in-out infinite !important;
+}
+@keyframes inputPulse {
+  0%,100% { box-shadow: 0 0 25px rgba(255,200,160,0.15), 0 0 50px rgba(255,200,160,0.08), inset 0 0 20px rgba(255,200,160,0.05); }
+  50% { box-shadow: 0 0 35px rgba(255,200,160,0.2), 0 0 60px rgba(255,200,160,0.1), inset 0 0 25px rgba(255,200,160,0.07); }
+}
+
+.apel-btn { animation: apelPulse 3s ease-in-out infinite; }
+@keyframes apelPulse {
+  0%,100% { box-shadow: 0 0 8px rgba(255,245,220,0.06), 0 0 3px rgba(255,245,220,0.03); }
+  50% { box-shadow: 0 0 16px rgba(255,245,220,0.12), 0 0 6px rgba(255,245,220,0.08), 0 0 30px rgba(255,245,220,0.04); }
+}

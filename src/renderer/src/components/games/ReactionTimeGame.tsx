@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import type { GameChallenge, GameAction } from '../../../../../shared/types'
+import type { BrainGameCompletion, GameChallenge, GameChallengeSeed, GameAction } from '../../../../../shared/types'
 import { useLanguage } from '../../contexts/LanguageContext'
 
-interface Props { onEnd: () => void; difficulty?: import('../../../../../shared/types').GameDifficulty }
+interface Props { onEnd: () => void; onResult?: (result: BrainGameCompletion) => void; challengeSeed?: GameChallengeSeed | null; difficulty?: import('../../../../../shared/types').GameDifficulty }
 
 type Phase = 'waiting' | 'ready' | 'go' | 'clicked' | 'too_early'
 
-export default function ReactionTimeGame({ onEnd, difficulty = 'normal' }: Props) {
+export default function ReactionTimeGame({ onEnd, onResult, challengeSeed = null, difficulty = 'normal' }: Props) {
   const { t } = useLanguage()
   const [challenge, setChallenge] = useState<GameChallenge | null>(null)
   const [round, setRound] = useState(0)
@@ -20,11 +20,11 @@ export default function ReactionTimeGame({ onEnd, difficulty = 'normal' }: Props
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    window.aura.games.startChallenge('reaction_time', difficulty).then(c => {
+    window.aura.games.startChallenge('reaction_time', difficulty, challengeSeed).then(c => {
       setChallenge(c)
       startRound(c, 0)
     })
-  }, [])
+  }, [challengeSeed, difficulty])
 
   const startRound = (c: GameChallenge, idx: number) => {
     if (idx >= c.data.rounds) {
@@ -71,13 +71,15 @@ export default function ReactionTimeGame({ onEnd, difficulty = 'normal' }: Props
     setFinished(true)
     const validReactions = reactions.filter(r => r > 0)
     const score = validReactions.reduce((sum, r) => sum + Math.max(0, Math.floor(100 * (1 - r / 1000))), 0)
+    const completedAt = Date.now()
     const res = await window.aura.games.submitResult({
       challengeId: ch.id,
       actions: actionsRef.current,
       claimedScore: score,
-      completedAt: Date.now()
+      completedAt,
     })
     setResult(res)
+    onResult?.({ gameType: 'reaction_time', verified: res.verified, score: res.score, points: res.points, completedAt })
   }
 
   if (!challenge) {

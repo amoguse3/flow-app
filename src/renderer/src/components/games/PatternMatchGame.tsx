@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import type { GameChallenge, GameAction } from '../../../../../shared/types'
+import type { BrainGameCompletion, GameChallenge, GameChallengeSeed, GameAction } from '../../../../../shared/types'
 import { useLanguage } from '../../contexts/LanguageContext'
 
-interface Props { onEnd: () => void; difficulty?: import('../../../../../shared/types').GameDifficulty }
+interface Props { onEnd: () => void; onResult?: (result: BrainGameCompletion) => void; challengeSeed?: GameChallengeSeed | null; difficulty?: import('../../../../../shared/types').GameDifficulty }
 
-export default function PatternMatchGame({ onEnd, difficulty = 'normal' }: Props) {
+export default function PatternMatchGame({ onEnd, onResult, challengeSeed = null, difficulty = 'normal' }: Props) {
   const { t } = useLanguage()
   const [challenge, setChallenge] = useState<GameChallenge | null>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -17,8 +17,8 @@ export default function PatternMatchGame({ onEnd, difficulty = 'normal' }: Props
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    window.aura.games.startChallenge('pattern_match', difficulty).then(setChallenge)
-  }, [])
+    window.aura.games.startChallenge('pattern_match', difficulty, challengeSeed).then(setChallenge)
+  }, [challengeSeed, difficulty])
 
   useEffect(() => {
     if (!challenge || finished) return
@@ -36,13 +36,15 @@ export default function PatternMatchGame({ onEnd, difficulty = 'normal' }: Props
   const endGame = async () => {
     if (finished || !challenge) return
     setFinished(true)
+    const completedAt = Date.now()
     const res = await window.aura.games.submitResult({
       challengeId: challenge.id,
       actions: actionsRef.current,
       claimedScore: correct * 100,
-      completedAt: Date.now()
+      completedAt,
     })
     setResult(res)
+    onResult?.({ gameType: 'pattern_match', verified: res.verified, score: res.score, points: res.points, completedAt })
   }
 
   const submitAnswer = () => {

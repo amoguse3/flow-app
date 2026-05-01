@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Lesson, LessonPracticeExercise, LessonPracticeSet, LessonReward } from '../../../../shared/types'
+import type { GameType, Lesson, LessonPracticeExercise, LessonPracticeGameLaunch, LessonPracticeReinforcement, LessonPracticeSet, LessonReward } from '../../../../shared/types'
 import { playBlip, playClick, playDing } from '../lib/sounds'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface Props {
+  courseId: number
   lesson: Lesson
   nextTeaser?: string | null
   onComplete: () => void
   onReview: () => void
   onReward?: (reward: LessonReward) => void
+  onOpenGameMix?: (launch: LessonPracticeGameLaunch) => void
+  gameReinforcement?: LessonPracticeReinforcement | null
+  onAcknowledgeGameReinforcement?: (reinforcement: LessonPracticeReinforcement) => void
 }
 
 type Phase = 'loading' | 'intro' | 'question' | 'feedback' | 'summary' | 'blocked'
@@ -78,7 +83,8 @@ function PracticeCodeBlock({ code }: { code: string }) {
   )
 }
 
-export default function LessonPractice({ lesson, nextTeaser, onComplete, onReview, onReward }: Props) {
+export default function LessonPractice({ courseId, lesson, nextTeaser, onComplete, onReview, onReward, onOpenGameMix, gameReinforcement, onAcknowledgeGameReinforcement }: Props) {
+  const { t } = useLanguage()
   const [practiceSet, setPracticeSet] = useState<LessonPracticeSet | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -95,11 +101,26 @@ export default function LessonPractice({ lesson, nextTeaser, onComplete, onRevie
   const loadRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
   const onRewardRef = useRef(onReward)
+  const seenReinforcementRef = useRef<number | null>(null)
+  const [reinforcement, setReinforcement] = useState<LessonPracticeReinforcement | null>(null)
 
   useEffect(() => {
     onCompleteRef.current = onComplete
     onRewardRef.current = onReward
   }, [onComplete, onReward])
+
+  useEffect(() => {
+    setReinforcement(null)
+    seenReinforcementRef.current = null
+  }, [lesson.id])
+
+  useEffect(() => {
+    if (!gameReinforcement || gameReinforcement.lessonId !== lesson.id) return
+    if (seenReinforcementRef.current === gameReinforcement.completedAt) return
+    seenReinforcementRef.current = gameReinforcement.completedAt
+    setReinforcement(gameReinforcement)
+    onAcknowledgeGameReinforcement?.(gameReinforcement)
+  }, [gameReinforcement, lesson.id, onAcknowledgeGameReinforcement])
 
   useEffect(() => {
     if (loadRef.current) return
@@ -137,11 +158,109 @@ export default function LessonPractice({ lesson, nextTeaser, onComplete, onRevie
   const requiredToPass = practiceSet?.requiredToPass || 2
   const coreRequired = Math.min(requiredToPass, coreExercises.length || requiredToPass)
   const passed = correctCount >= requiredToPass && coreCorrectCount >= coreRequired
+  const recommendedGames = practiceSet?.recommendedGames || []
   const missedExercises = useMemo(
     () => exercises.filter((exercise) => !results[exercise.id]?.correct),
     [exercises, results],
   )
   const rewardReady = !passed || !!lessonReward
+
+  const getGameName = (gameType: GameType) => {
+    switch (gameType) {
+      case 'math_speed':
+        return t('games.mathSpeed')
+      case 'memory_tiles':
+        return t('games.memoryTiles')
+      case 'pattern_match':
+        return t('games.patternMatch')
+      case 'reaction_time':
+        return t('games.reactionTime')
+      case 'word_scramble':
+        return t('games.wordScramble')
+      case 'color_stroop':
+        return t('games.colorStroop')
+      default:
+        return gameType
+    }
+  }
+
+  const renderReinforcementCard = (context: 'intro' | 'summary') => {
+    if (!reinforcement) return null
+
+    const verified = reinforcement.verified
+    const accent = verified ? 'rgba(46,184,122,0.18)' : 'rgba(220,170,50,0.18)'
+    const accentText = verified ? 'rgba(126,232,177,0.86)' : 'rgba(245,211,120,0.84)'
+    const gameName = getGameName(reinforcement.gameType).toUpperCase()
+
+    return (
+      <div style={{
+        padding: '14px 16px',
+        borderRadius: '12px',
+        marginBottom: context === 'intro' ? '18px' : '16px',
+        background: 'rgba(4,14,8,0.58)',
+        border: `1px solid ${accent}`,
+      }}>
+        <div style={{ fontFamily: PX, fontSize: '4px', color: accentText, lineHeight: 2, letterSpacing: '0.1em', marginBottom: '8px' }}>
+          {verified ? 'BONUS REINFORCEMENT LOGGED' : 'GAME LOOP RECORDED'}
+        </div>
+        <div style={{ fontFamily: PX, fontSize: '4.8px', color: 'rgba(235,225,205,0.74)', lineHeight: 2.2 }}>
+          {verified
+            ? `${gameName} verified at score ${reinforcement.score} for +${reinforcement.points} points. This counts as an extra recall loop, even though the lesson pass gate still stays here.`
+            : `${gameName} was recorded, but the score was not verified. Keep the lesson threshold here and use the game as an extra repetition pass.`}
+        </div>
+      </div>
+    )
+  }
+
+  const renderRecommendedGamesCard = (context: 'intro' | 'summary') => {
+    if (!practiceSet || recommendedGames.length === 0) return null
+
+    const isLanguageMode = practiceSet.mode === 'language-learning'
+    const accent = isLanguageMode ? 'rgba(96,180,255,0.18)' : 'rgba(196,154,60,0.16)'
+    const accentText = isLanguageMode ? 'rgba(156,212,255,0.82)' : 'rgba(245,228,168,0.82)'
+
+    return (
+      <div style={{
+        padding: '14px 16px',
+        borderRadius: '12px',
+        marginBottom: context === 'intro' ? '18px' : '16px',
+        background: 'rgba(4,14,8,0.58)',
+        border: `1px solid ${accent}`,
+      }}>
+        <div style={{ fontFamily: PX, fontSize: '4px', color: accentText, lineHeight: 2, letterSpacing: '0.1em', marginBottom: '8px' }}>
+          {practiceSet.modeLabel || (isLanguageMode ? 'LANGUAGE PRACTICE MODE' : 'RECOMMENDED BRAIN GAMES')}
+        </div>
+        <div style={{ fontFamily: PX, fontSize: '4.8px', color: 'rgba(235,225,205,0.7)', lineHeight: 2.1, marginBottom: '10px' }}>
+          {isLanguageMode
+            ? 'After the lesson, reinforce recognition and fast recall with a short game mix.'
+            : 'If you want one more repetition loop, use a short game mix after practice.'}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {recommendedGames.map((gameType) => (
+            <button
+              key={gameType}
+              onClick={() => onOpenGameMix?.({ courseId, lessonId: lesson.id, gameType, gameSeed: practiceSet.gameSeed || null })}
+              disabled={!onOpenGameMix}
+              style={{
+                fontFamily: PX,
+                fontSize: '4.6px',
+                lineHeight: 2,
+                padding: '9px 12px',
+                borderRadius: '999px',
+                cursor: onOpenGameMix ? 'pointer' : 'default',
+                background: isLanguageMode ? 'rgba(96,180,255,0.08)' : 'rgba(196,154,60,0.08)',
+                border: `1px solid ${isLanguageMode ? 'rgba(96,180,255,0.18)' : 'rgba(196,154,60,0.18)'}`,
+                color: accentText,
+                opacity: onOpenGameMix ? 1 : 0.72,
+              }}
+            >
+              {getGameName(gameType).toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (phase !== 'summary' || !passed || rewardRequestedRef.current) return
@@ -342,6 +461,8 @@ export default function LessonPractice({ lesson, nextTeaser, onComplete, onRevie
               {practiceSet.objective}
             </div>
           </div>
+          {renderReinforcementCard('intro')}
+          {renderRecommendedGamesCard('intro')}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
             <button onClick={onReview} style={{
               fontFamily: PX, fontSize: '5px', lineHeight: 2,
@@ -484,6 +605,9 @@ export default function LessonPractice({ lesson, nextTeaser, onComplete, onRevie
               If you return to the lesson and retry, we'll prepare a new practice set for the next round.
             </div>
           )}
+
+          {renderReinforcementCard('summary')}
+          {renderRecommendedGamesCard('summary')}
 
           {missedExercises.length > 0 && (
             <div style={{

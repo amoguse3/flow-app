@@ -3,6 +3,7 @@ import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import initSqlJs, { type Database } from 'sql.js'
 import type { CourseFamiliarity, CourseGenerationJobStatus, CourseGenerationPhase, CourseStatus } from '../../shared/types'
+import { runMigrations } from './db-migrations'
 
 let db: Database
 
@@ -21,6 +22,13 @@ export async function initDB(): Promise<Database> {
 
   db.run('PRAGMA journal_mode = WAL')
   db.run('PRAGMA foreign_keys = ON')
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS schema_meta (
+      version INTEGER PRIMARY KEY,
+      applied_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `)
 
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -128,6 +136,7 @@ export async function initDB(): Promise<Database> {
       difficulty_rating INTEGER NOT NULL CHECK(difficulty_rating BETWEEN 1 AND 10),
       continue_interest_rating INTEGER NOT NULL CHECK(continue_interest_rating BETWEEN 1 AND 10),
       notes TEXT,
+      recommendation_json TEXT,
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
     )
@@ -222,8 +231,7 @@ export async function initDB(): Promise<Database> {
     )
   `)
 
-  ensureEducatorSchema()
-  migrateCoursesSchema()
+  runMigrations(db)
 
   saveDB()
   return db
@@ -427,153 +435,8 @@ function getTableColumns(tableName: string): string[] {
   return queryAll(`PRAGMA table_info(${tableName})`).map((row) => String(row.name || ''))
 }
 
-function ensureTableColumn(tableName: string, columnName: string, columnSql: string): void {
-  const columns = new Set(getTableColumns(tableName))
-  if (columns.has(columnName)) return
-  getDB().run(`ALTER TABLE ${tableName} ADD COLUMN ${columnSql}`)
-}
-
 export function ensureEducatorSchema(): void {
-  getDB().run(`
-    CREATE TABLE IF NOT EXISTS course_generation_jobs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-      intake_session_id INTEGER REFERENCES course_intake_sessions(id) ON DELETE SET NULL,
-      topic TEXT NOT NULL,
-      familiarity TEXT,
-      status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued', 'running', 'completed', 'failed')),
-      phase TEXT NOT NULL DEFAULT 'queued' CHECK(phase IN ('queued', 'roadmap', 'modules', 'finalizing', 'completed', 'failed')),
-      progress INTEGER DEFAULT 0,
-      summary TEXT,
-      error TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `)
-
-  getDB().run(`
-    CREATE TABLE IF NOT EXISTS course_intake_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      topic TEXT NOT NULL,
-      requested_familiarity TEXT,
-      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'collecting', 'ready', 'submitted', 'cancelled')),
-      seed_request TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `)
-
-  getDB().run(`
-    CREATE TABLE IF NOT EXISTS course_intake_answers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL REFERENCES course_intake_sessions(id) ON DELETE CASCADE,
-      question_key TEXT,
-      question TEXT NOT NULL,
-      answer TEXT NOT NULL,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `)
-
-  getDB().run(`
-    CREATE TABLE IF NOT EXISTS course_feedback (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course_id INTEGER NOT NULL UNIQUE REFERENCES courses(id) ON DELETE CASCADE,
-      overall_rating INTEGER NOT NULL CHECK(overall_rating BETWEEN 1 AND 10),
-      clarity_rating INTEGER NOT NULL CHECK(clarity_rating BETWEEN 1 AND 10),
-      retention_rating INTEGER NOT NULL CHECK(retention_rating BETWEEN 1 AND 10),
-      difficulty_rating INTEGER NOT NULL CHECK(difficulty_rating BETWEEN 1 AND 10),
-      continue_interest_rating INTEGER NOT NULL CHECK(continue_interest_rating BETWEEN 1 AND 10),
-      notes TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `)
-
-  ensureTableColumn('course_generation_jobs', 'intake_session_id', 'intake_session_id INTEGER REFERENCES course_intake_sessions(id) ON DELETE SET NULL')
-  ensureTableColumn('course_generation_jobs', 'summary', 'summary TEXT')
-  ensureTableColumn('course_generation_jobs', 'error', 'error TEXT')
-  ensureTableColumn('course_generation_jobs', 'created_at', 'created_at DATETIME')
-  ensureTableColumn('course_generation_jobs', 'updated_at', 'updated_at DATETIME')
-  ensureTableColumn('course_intake_sessions', 'seed_request', 'seed_request TEXT')
-  ensureTableColumn('course_intake_sessions', 'created_at', 'created_at DATETIME')
-  ensureTableColumn('course_intake_sessions', 'updated_at', 'updated_at DATETIME')
-  ensureTableColumn('course_intake_answers', 'question_key', 'question_key TEXT')
-  ensureTableColumn('course_intake_answers', 'created_at', 'created_at DATETIME')
-  ensureTableColumn('course_feedback', 'notes', 'notes TEXT')
-  ensureTableColumn('course_feedback', 'created_at', 'created_at DATETIME')
-  ensureTableColumn('course_feedback', 'updated_at', 'updated_at DATETIME')
-
-  getDB().run("UPDATE course_generation_jobs SET created_at = COALESCE(created_at, datetime('now', 'localtime')), updated_at = COALESCE(updated_at, datetime('now', 'localtime'))")
-  getDB().run("UPDATE course_intake_sessions SET created_at = COALESCE(created_at, datetime('now', 'localtime')), updated_at = COALESCE(updated_at, datetime('now', 'localtime'))")
-  getDB().run("UPDATE course_intake_answers SET created_at = COALESCE(created_at, datetime('now', 'localtime'))")
-  getDB().run("UPDATE course_feedback SET created_at = COALESCE(created_at, datetime('now', 'localtime')), updated_at = COALESCE(updated_at, datetime('now', 'localtime'))")
-}
-
-function migrateCoursesSchema() {
-  const coursesSql = getTableSql('courses')
-  const columns = new Set(getTableColumns('courses'))
-  const needsMigration = !coursesSql.includes("'generating'")
-    || !coursesSql.includes("'failed'")
-    || !columns.has('generation_summary')
-    || !columns.has('generation_progress')
-    || !columns.has('generation_phase')
-    || !columns.has('generation_error')
-
-  if (!needsMigration) return
-
-  getDB().run('PRAGMA foreign_keys = OFF')
-  getDB().run(`
-    CREATE TABLE courses_new (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT,
-      topic TEXT,
-      total_modules INTEGER DEFAULT 0,
-      completed_modules INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'active' CHECK(status IN ('generating', 'active', 'completed', 'paused', 'failed')),
-      generation_summary TEXT,
-      generation_progress INTEGER DEFAULT 0,
-      generation_phase TEXT,
-      generation_error TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `)
-  getDB().run(`
-    INSERT INTO courses_new (
-      id,
-      title,
-      description,
-      topic,
-      total_modules,
-      completed_modules,
-      status,
-      generation_summary,
-      generation_progress,
-      generation_phase,
-      generation_error,
-      created_at
-    )
-    SELECT
-      id,
-      title,
-      description,
-      topic,
-      total_modules,
-      completed_modules,
-      CASE
-        WHEN status IN ('generating', 'active', 'completed', 'paused', 'failed') THEN status
-        ELSE 'active'
-      END,
-      NULL,
-      0,
-      NULL,
-      NULL,
-      created_at
-    FROM courses
-  `)
-  getDB().run('DROP TABLE courses')
-  getDB().run('ALTER TABLE courses_new RENAME TO courses')
-  getDB().run('PRAGMA foreign_keys = ON')
+  runMigrations(getDB())
 }
 
 function getCourseBaseQuery() {
@@ -850,9 +713,13 @@ export function upsertCourseFeedback(
     difficulty_rating: number
     continue_interest_rating: number
     notes?: string | null
+    recommendation?: unknown
   },
 ): any {
   const existing = getCourseFeedback(courseId)
+  const serializedRecommendation = feedback.recommendation === undefined
+    ? existing?.recommendation_json ?? null
+    : JSON.stringify(feedback.recommendation ?? null)
 
   if (existing) {
     getDB().run(
@@ -863,6 +730,7 @@ export function upsertCourseFeedback(
            difficulty_rating = ?,
            continue_interest_rating = ?,
            notes = ?,
+           recommendation_json = ?,
            updated_at = datetime('now', 'localtime')
        WHERE course_id = ?`,
       [
@@ -872,6 +740,7 @@ export function upsertCourseFeedback(
         feedback.difficulty_rating,
         feedback.continue_interest_rating,
         feedback.notes ?? null,
+        serializedRecommendation,
         courseId,
       ],
     )
@@ -885,9 +754,10 @@ export function upsertCourseFeedback(
         difficulty_rating,
         continue_interest_rating,
         notes,
+        recommendation_json,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))`,
       [
         courseId,
         feedback.overall_rating,
@@ -896,10 +766,23 @@ export function upsertCourseFeedback(
         feedback.difficulty_rating,
         feedback.continue_interest_rating,
         feedback.notes ?? null,
+        serializedRecommendation,
       ],
     )
   }
 
+  saveDB()
+  return getCourseFeedback(courseId)
+}
+
+export function updateCourseFeedbackRecommendation(courseId: number, recommendation: unknown): any {
+  getDB().run(
+    `UPDATE course_feedback
+     SET recommendation_json = ?,
+         updated_at = datetime('now', 'localtime')
+     WHERE course_id = ?`,
+    [JSON.stringify(recommendation ?? null), courseId],
+  )
   saveDB()
   return getCourseFeedback(courseId)
 }

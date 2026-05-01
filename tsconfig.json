@@ -11,12 +11,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["shared/*"],
-      "@renderer/*": ["src/renderer/src/*"]
+      "@shared/*": ["./shared/*"],
+      "@renderer/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src/**/*", "shared/**/*"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src/renderer/src/**/*", "shared/**/*"]
 }
