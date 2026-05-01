@@ -465,6 +465,34 @@ button:active:not(:disabled) {
   50%      { box-shadow: 0 0 28px rgba(var(--aura-accent-rgb, 196,154,60), 0.45), 0 0 50px rgba(var(--aura-accent-rgb, 196,154,60), 0.12); }
 }
 
+/* ─── Legacy theme-font hook (TypewriterText + similar) ─────────────────
+   Lets the bot's response text follow whatever font the user picked in
+   Settings → Theme via the --aura-font CSS variable set by ThemeContext.
+   Without this rule, .aura-theme-font on TypewriterText would silently fall
+   through to Inter and ignore the customisation. */
+.aura-theme-font,
+.aura-theme-font * {
+  font-family: var(--aura-font, 'Newsreader', Georgia, 'Times New Roman', serif) !important;
+}
+
+/* ─── Tiny-pixel-font safety net ─────────────────────────────────────────
+   Many existing screens (Chat, FocusMode, BrainGames, TeacherMode,
+   CourseView, Achievements, ThemePicker, AIError, overlay, TopIndicator,
+   TaskPanel, LessonViewer code blocks) still inline `fontSize: 5` / 6 /
+   8 with Press Start 2P — those are unreadable without a bump. We keep
+   the same attribute-selector overrides the old globals.css had, so a
+   later PR can migrate them onto the new font-* utilities at its leisure. */
+[style*="font-size: 5px"], [style*="font-size:5px"],
+[style*="font-size: 6px"], [style*="font-size:6px"] {
+  font-size: 11px !important;
+}
+[style*="font-size: 7px"], [style*="font-size:7px"] {
+  font-size: 11px !important;
+}
+[style*="font-size: 8px"], [style*="font-size:8px"] {
+  font-size: 12px !important;
+}
+
 /* ─── Reduced motion preference ───────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
