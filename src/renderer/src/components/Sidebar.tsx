@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import type { Task, MotivationState, UserProfile } from '../../../../shared/types'
+import type { Task, UserProfile } from '../../../../shared/types'
 import { LEVELS, BADGES } from '../../../../shared/constants'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useMotivation } from '../contexts/MotivationContext'
 
 interface Props {
   onClose: () => void
@@ -10,14 +11,13 @@ interface Props {
 
 export default function Sidebar({ onClose, profile }: Props) {
   const { t } = useLanguage()
+  const { motivation, syncMotivation } = useMotivation()
   const [tasks, setTasks] = useState<Task[]>([])
-  const [motivation, setMotivation] = useState<MotivationState | null>(null)
   const [newTask, setNewTask] = useState('')
   const [tab, setTab] = useState<'tasks' | 'stats'>('tasks')
 
   useEffect(() => {
     window.aura.tasks.list().then(setTasks)
-    window.aura.motivation.getState().then(setMotivation)
   }, [])
 
   const addTask = async () => {
@@ -30,11 +30,11 @@ export default function Sidebar({ onClose, profile }: Props) {
   const toggleTask = async (id: number) => {
     await window.aura.tasks.toggle(id)
     setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t))
-    // Award XP for completing
+    // Award XP for completing — propagate via shared context so other panels stay in sync.
     const task = tasks.find(t => t.id === id)
     if (task && !task.done) {
       const mot = await window.aura.motivation.addXP(15)
-      setMotivation(mot)
+      syncMotivation(mot)
     }
   }
 

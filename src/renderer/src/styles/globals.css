@@ -1,21 +1,53 @@
 @import "tailwindcss";
 
+/* ─── Premium fonts (Geist sans + Iowan-style serif + Migra italic) ──────────
+   We use Inter + Newsreader Italic from Google Fonts as a 1:1 stand-in for
+   Geist + Migra Italic, since those are not on a free CDN. The visual feel
+   matches the moodboard (Helious / Cosmos / Editorial New). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @theme inline {
-  --color-aura-bg: #080606;
-  --color-aura-surface: #12100e;
-  --color-aura-card: #1a1714;
-  --color-aura-border: #2a2520;
-  --color-aura-orange: #d97706;
-  --color-aura-amber: #f59e0b;
-  --color-aura-violet: #8b5cf6;
-  --color-aura-rose: #ec4899;
-  --color-aura-emerald: #10b981;
-  --color-aura-text: #e8e0d8;
-  --color-aura-muted: #8a7e72;
-  --color-aura-glow: rgba(217, 119, 6, 0.15);
+  /* ── New design tokens (Wisp 2.0) ──────────────────────────────────────── */
+  /* Surfaces */
+  --color-ink-950:    #08070C;   /* deepest night */
+  --color-ink-900:    #110F18;   /* base bg */
+  --color-ink-800:    #1A1724;   /* raised */
+  --color-ink-700:    #221F2E;   /* hover */
+
+  /* Paper (text) */
+  --color-paper-0:    rgba(255,255,255,0.96);
+  --color-paper-1:    rgba(245,237,225,0.85);
+  --color-paper-2:    rgba(245,237,225,0.55);
+  --color-paper-3:    rgba(245,237,225,0.32);
+
+  /* Accents per theme — set live by ThemeContext via --aura-accent.
+     Keep these only as semantic *fallbacks* for dev preview. */
+  --color-aurora:     #C8A3FF;
+  --color-ember:      #FF8E5A;
+  --color-deep:       #5DCFFF;
+  --color-moss:       #9DE07A;
+  --color-candy:      #FF6CC9;
+  --color-graphite:   #D4D4D8;
+  --color-sakura:     #FFB6D9;
+
+  /* ── Legacy aura-* tokens — kept so existing components still compile ── */
+  --color-aura-bg:        #08070C;
+  --color-aura-surface:   #110F18;
+  --color-aura-card:      #1A1724;
+  --color-aura-border:    rgba(255,255,255,0.08);
+  --color-aura-orange:    #FF8E5A;
+  --color-aura-amber:     #FFB07A;
+  --color-aura-violet:    #C8A3FF;
+  --color-aura-rose:      #FF6CC9;
+  --color-aura-emerald:   #9DE07A;
+  --color-aura-text:      rgba(245,237,225,0.92);
+  --color-aura-muted:     rgba(245,237,225,0.45);
+  --color-aura-glow:      rgba(255,142,90,0.18);
+
   --aura-ui-scale: 1;
 }
 
+/* ─── Reset ─────────────────────────────────────────────────────────────── */
 * {
   margin: 0;
   padding: 0;
@@ -28,391 +60,446 @@ html, body, #root {
   overflow: hidden;
   background: var(--color-aura-bg);
   color: var(--color-aura-text);
-  font-family: 'Press Start 2P', 'Courier New', monospace;
+  /* New default: Inter (Geist-like). Pixel font becomes display-only. */
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
-  font-size: clamp(9px, 0.55vw + 0.45vh, 11px);
-  line-height: 1.8;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
 }
 
-/* Titlebar drag region */
-.titlebar-drag {
-  -webkit-app-region: drag;
+/* ─── Display / serif type stack ────────────────────────────────────────── */
+.font-display {
+  font-family: 'Newsreader', 'Iowan Old Style', 'Apple Garamond', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
-.titlebar-nodrag {
-  -webkit-app-region: no-drag;
+.font-serif-ui {
+  font-family: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.font-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+}
+.font-pixel {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  letter-spacing: 0.05em;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ─── Titlebar drag region ─────────────────────────────────────────────── */
+.titlebar-drag    { -webkit-app-region: drag;    }
+.titlebar-nodrag  { -webkit-app-region: no-drag; }
+
+/* ─── Custom scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-aura-border);
-  border-radius: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  transition: background 0.2s;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-aura-muted);
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ─── Glass system (Wisp 2.0) ──────────────────────────────────────────── */
+/* iOS 18 / visionOS-style glass — inner highlight + soft outer ring */
+.glass-sm,
+.glass-md,
+.glass-hi {
+  position: relative;
+  background: rgba(20, 16, 28, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255,255,255,0.08),
+    0 12px 40px -12px rgba(0,0,0,0.55);
+}
+.glass-md {
+  background: rgba(20, 16, 28, 0.65);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255,255,255,0.10),
+    0 24px 60px -18px rgba(0,0,0,0.6);
+}
+.glass-hi {
+  background: rgba(20, 16, 28, 0.78);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255,255,255,0.14),
+    0 32px 80px -24px rgba(0,0,0,0.7);
 }
 
-/* Glass effect */
+/* ─── Legacy .glass (kept for older components that still reference it) ─── */
 .glass {
-  background: rgba(18, 16, 14, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(42, 37, 32, 0.5);
+  background: rgba(20, 16, 28, 0.65);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* Glow effect */
-.glow-orange {
-  box-shadow: 0 0 20px rgba(217, 119, 6, 0.2), 0 0 60px rgba(217, 119, 6, 0.05);
+/* ─── Status glows (legacy) ───────────────────────────────────────────── */
+.glow-orange { box-shadow: 0 0 24px rgba(255,142,90,0.25), 0 0 80px rgba(255,142,90,0.06); }
+.glow-violet { box-shadow: 0 0 24px rgba(200,163,255,0.25), 0 0 80px rgba(200,163,255,0.06); }
+
+/* ─── Gradient text (used for hero headlines) ─────────────────────────── */
+.text-gradient-aurora {
+  background: linear-gradient(135deg, #ffffff 0%, #C8A3FF 50%, #FFB6D9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-gradient-ember {
+  background: linear-gradient(135deg, #FFD9C2 0%, #FF8E5A 60%, #FF6CC9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.glow-violet {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2), 0 0 60px rgba(139, 92, 246, 0.05);
-}
-
-/* Breathing animation for avatar */
+/* ─── Animations (single source of truth) ─────────────────────────────── */
 @keyframes breathe {
   0%, 100% { transform: scale(1); filter: brightness(1); }
-  50% { transform: scale(1.03); filter: brightness(1.1); }
+  50%      { transform: scale(1.03); filter: brightness(1.1); }
 }
-
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  50%      { transform: translateY(-6px); }
 }
-
 @keyframes pulse-ring {
-  0% { transform: scale(0.9); opacity: 0.6; }
-  50% { transform: scale(1.15); opacity: 0; }
+  0%   { transform: scale(0.9); opacity: 0.6; }
+  50%  { transform: scale(1.15); opacity: 0; }
   100% { transform: scale(0.9); opacity: 0; }
 }
-
 @keyframes shimmer {
-  0% { background-position: -200% center; }
+  0%   { background-position: -200% center; }
   100% { background-position: 200% center; }
 }
-
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes fade-in {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
-
 @keyframes slide-in-right {
   from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes slide-in-left {
   from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes typing-dot {
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-4px); }
+  30%           { opacity: 1;   transform: translateY(-4px); }
 }
-
 @keyframes orb-float-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(30px, -20px) scale(1.1); }
-  50% { transform: translate(-10px, -40px) scale(0.95); }
-  75% { transform: translate(-30px, -10px) scale(1.05); }
+  25%      { transform: translate(30px, -20px) scale(1.1); }
+  50%      { transform: translate(-10px, -40px) scale(0.95); }
+  75%      { transform: translate(-30px, -10px) scale(1.05); }
 }
-
 @keyframes orb-float-2 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(-25px, 30px) scale(0.95); }
-  50% { transform: translate(20px, 15px) scale(1.08); }
-  75% { transform: translate(10px, -25px) scale(1); }
+  25%      { transform: translate(-25px, 30px) scale(0.95); }
+  50%      { transform: translate(20px, 15px) scale(1.08); }
+  75%      { transform: translate(10px, -25px) scale(1); }
 }
-
 @keyframes particle-rise {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-80px) scale(0); }
 }
+@keyframes hero-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.08); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shine-sweep {
+  from { transform: translateX(-120%) skewX(-20deg); }
+  to   { transform: translateX(220%) skewX(-20deg); }
+}
+@keyframes confetti-pop {
+  0%   { transform: translateY(0) rotate(0); opacity: 1; }
+  100% { transform: translateY(-220px) rotate(540deg); opacity: 0; }
+}
 
-.animate-breathe { animation: breathe 4s ease-in-out infinite; }
-.animate-float { animation: float 3s ease-in-out infinite; }
-.animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
-.animate-fade-in-up { animation: fade-in-up 0.4s ease-out forwards; }
-.animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-.animate-slide-right { animation: slide-in-right 0.3s ease-out forwards; }
-.animate-slide-left { animation: slide-in-left 0.3s ease-out forwards; }
+.animate-breathe       { animation: breathe 4s ease-in-out infinite; }
+.animate-float         { animation: float 3s ease-in-out infinite; }
+.animate-pulse-ring    { animation: pulse-ring 2s ease-out infinite; }
+.animate-fade-in-up    { animation: fade-in-up 0.45s cubic-bezier(.165,.84,.44,1) forwards; }
+.animate-fade-in       { animation: fade-in 0.3s ease-out forwards; }
+.animate-slide-right   { animation: slide-in-right 0.3s ease-out forwards; }
+.animate-slide-left    { animation: slide-in-left 0.3s ease-out forwards; }
+.animate-scale-in      { animation: scale-in 0.4s cubic-bezier(.165,.84,.44,1) forwards; }
+.animate-hero-glow     { animation: hero-glow 5s ease-in-out infinite; }
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(217,119,6,0.1) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,142,90,0.12) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
 
-/* Input glow on focus */
+/* ─── Inputs ──────────────────────────────────────────────────────────── */
 input:focus, textarea:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.3), 0 0 20px rgba(217, 119, 6, 0.1);
+  box-shadow:
+    0 0 0 2px rgba(var(--aura-accent-rgb, 255, 142, 90), 0.35),
+    0 0 28px rgba(var(--aura-accent-rgb, 255, 142, 90), 0.12);
 }
 
-/* Smooth transitions on everything */
 button, a, input, textarea {
-  transition: all 0.2s ease;
+  transition:
+    transform 0.18s cubic-bezier(.165,.84,.44,1),
+    background 0.22s ease,
+    color 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    opacity 0.22s ease;
 }
 
-/* Selection color */
 ::selection {
-  background: rgba(217, 119, 6, 0.3);
+  background: rgba(var(--aura-accent-rgb, 255, 142, 90), 0.3);
   color: #fff;
 }
 
-/* ── Phase 6: Polish ── */
-
-/* Button press effect */
+/* ─── Polish ──────────────────────────────────────────────────────────── */
 button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
-/* Hover lift for cards */
 .hover-lift {
-  transition: transform 0.25s cubic-bezier(.16,1,.3,1), box-shadow 0.25s ease;
+  transition:
+    transform 0.28s cubic-bezier(.16,1,.3,1),
+    box-shadow 0.28s ease;
 }
 .hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 50px -16px rgba(0,0,0,0.55);
 }
 
-/* Tab switch animation */
 @keyframes tab-switch {
   from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.animate-tab-switch { animation: tab-switch 0.25s ease-out forwards; }
+.animate-tab-switch { animation: tab-switch 0.25s cubic-bezier(.165,.84,.44,1) forwards; }
 
-/* Message bubble entrance */
-@keyframes msg-in-user {
-  from { opacity: 0; transform: translateX(16px) scale(0.95); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+/* ─── Primary button — emboss + shine sweep ───────────────────────────── */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.16) 0%,
+    rgba(var(--aura-accent-rgb, 255, 142, 90), 0.95) 40%,
+    rgba(var(--aura-accent-rgb, 255, 142, 90), 0.78) 100%
+  );
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255,255,255,0.35),
+    inset 0 -1px 0 0 rgba(0,0,0,0.18),
+    0 12px 30px -10px rgba(var(--aura-accent-rgb, 255, 142, 90), 0.45);
 }
-@keyframes msg-in-bot {
-  from { opacity: 0; transform: translateX(-16px) scale(0.95); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.25) 50%,
+    transparent 100%
+  );
+  transform: translateX(-120%) skewX(-20deg);
+  pointer-events: none;
 }
-.animate-msg-user { animation: msg-in-user 0.3s cubic-bezier(.16,1,.3,1) forwards; }
-.animate-msg-bot { animation: msg-in-bot 0.3s cubic-bezier(.16,1,.3,1) forwards; }
+.btn-primary:hover:not(:disabled)::after {
+  animation: shine-sweep 0.9s cubic-bezier(.165,.84,.44,1) forwards;
+}
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
-/* Overlay backdrop entrance */
-@keyframes overlay-in {
-  from { opacity: 0; backdrop-filter: blur(0px); }
-  to { opacity: 1; backdrop-filter: blur(20px); }
-}
-@keyframes overlay-content-in {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.animate-overlay { animation: overlay-in 0.25s ease-out forwards; }
-.animate-overlay-content { animation: overlay-content-in 0.3s cubic-bezier(.16,1,.3,1) 0.05s forwards; opacity: 0; }
-
-/* Skeleton loading pulse */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.04; }
-  50% { opacity: 0.08; }
-}
-.skeleton {
+/* ─── Ghost button ────────────────────────────────────────────────────── */
+.btn-ghost {
   background: rgba(255,255,255,0.04);
-  border-radius: 8px;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  color: var(--color-paper-1);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.16);
+  color: var(--color-paper-0);
 }
 
-/* Progress ring animation */
-@keyframes progress-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+/* ─── Chip ─────────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--color-paper-1);
 }
-.animate-progress-spin { animation: progress-spin 1s linear infinite; }
-
-/* Achievement pop */
-@keyframes achievement-pop {
-  0% { transform: scale(0) rotate(-10deg); opacity: 0; }
-  50% { transform: scale(1.15) rotate(3deg); }
-  100% { transform: scale(1) rotate(0); opacity: 1; }
-}
-.animate-achievement { animation: achievement-pop 0.5s cubic-bezier(.16,1,.3,1) forwards; }
-
-/* Subtle hover glow for interactive elements */
-.hover-glow:hover {
-  box-shadow: 0 0 12px rgba(217,119,6,0.12);
-}
-
-/* Smooth view transitions */
-.view-enter {
-  animation: fade-in-up 0.3s cubic-bezier(.16,1,.3,1) forwards;
+.chip-accent {
+  background: rgba(var(--aura-accent-rgb, 255, 142, 90), 0.14);
+  border-color: rgba(var(--aura-accent-rgb, 255, 142, 90), 0.28);
+  color: var(--color-paper-0);
 }
 
-/* Number count-up helper */
-@keyframes count-pulse {
-  0%, 100% { color: var(--color-aura-text); }
-  50% { color: var(--color-aura-orange); }
+/* ─── Reading mode (LessonViewer) ─────────────────────────────────────── */
+.reading-prose {
+  font-family: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.7;
+  letter-spacing: -0.003em;
+  color: var(--color-paper-1);
 }
-.animate-count { animation: count-pulse 0.6s ease; }
+.reading-prose p + p { margin-top: 1.05em; }
+.reading-prose strong { color: var(--color-paper-0); font-weight: 600; }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   Cosmic Space Background Animations
-   ══════════════════════════════════════════════════════════════════════════════ */
-
+/* ─── Legacy keyframe aliases (kept until callsites migrate) ──────────────
+   These are referenced by inline styles in BackgroundOrbs, LessonViewer,
+   LessonPractice, LessonQuiz, Settings, VoiceCall, etc. We keep them here so
+   the rewrite of globals.css does not silently break entrance animations
+   and the cosmic background scene. */
 /* Stars */
 @keyframes starTwinkle { 0%,100%{opacity:0.3;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.3)} }
-
 /* Planets */
 @keyframes planetFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-
-/* Sun pulse */
+/* Sun */
 @keyframes sunPulse {
   0%,100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.06); }
+  50%     { transform: translate(-50%, -50%) scale(1.06); }
 }
-
-/* Asteroids drifting */
+/* Asteroids */
 @keyframes asteroidDrift { 0%{transform:translateX(-60px) rotate(0deg)} 100%{transform:translateX(calc(100vw + 60px)) rotate(360deg)} }
-
-/* Debris floating & spinning */
+/* Debris */
 @keyframes debrisFloat {
   0%,100% { transform: translate(0, 0); }
-  20% { transform: translate(15px, -10px); }
-  40% { transform: translate(-8px, -20px); }
-  60% { transform: translate(12px, 8px); }
-  80% { transform: translate(-10px, 12px); }
+  20%     { transform: translate(15px, -10px); }
+  40%     { transform: translate(-8px, -20px); }
+  60%     { transform: translate(12px, 8px); }
+  80%     { transform: translate(-10px, 12px); }
 }
 @keyframes debrisSpin {
-  0% { filter: drop-shadow(0 0 2px rgba(160,140,120,0.2)) brightness(1); }
-  50% { filter: drop-shadow(0 0 3px rgba(160,140,120,0.3)) brightness(1.1); }
+  0%   { filter: drop-shadow(0 0 2px rgba(160,140,120,0.2)) brightness(1); }
+  50%  { filter: drop-shadow(0 0 3px rgba(160,140,120,0.3)) brightness(1.1); }
   100% { filter: drop-shadow(0 0 2px rgba(160,140,120,0.2)) brightness(1); }
 }
-
-/* Big meteorites — fast fly-across (1.5s visible in 15s cycle) */
+/* Big meteors */
 @keyframes bigMeteor {
-  0% { opacity: 0; transform: translate(0, 0); }
-  1% { opacity: 0.6; }
-  2% { opacity: 1; }
-  10% { opacity: 1; transform: translate(calc(110vw), calc(60vh)); }
-  11% { opacity: 0; transform: translate(calc(120vw), calc(65vh)); }
+  0%   { opacity: 0; transform: translate(0, 0); }
+  1%   { opacity: 0.6; }
+  2%   { opacity: 1; }
+  10%  { opacity: 1; transform: translate(calc(110vw), calc(60vh)); }
+  11%  { opacity: 0; transform: translate(calc(120vw), calc(65vh)); }
   100% { opacity: 0; transform: translate(calc(120vw), calc(65vh)); }
 }
 @keyframes sparkFlicker {
-  0% { opacity: 0.3; transform: scale(0.8); }
+  0%   { opacity: 0.3; transform: scale(0.8); }
   100% { opacity: 1; transform: scale(1.3); }
 }
-
-/* Asteroid impact effects */
+/* Impacts */
 @keyframes impactFlash {
-  0% { transform: scale(0.3); opacity: 1; }
-  40% { transform: scale(1.5); opacity: 0.8; }
+  0%   { transform: scale(0.3); opacity: 1; }
+  40%  { transform: scale(1.5); opacity: 0.8; }
   100% { transform: scale(2.5); opacity: 0; }
 }
 @keyframes impactDebris {
-  0% { transform: rotate(var(--r, 0deg)) translateX(5px); opacity: 1; }
+  0%   { transform: rotate(var(--r, 0deg)) translateX(5px); opacity: 1; }
   100% { transform: rotate(var(--r, 0deg)) translateX(35px); opacity: 0; }
 }
 @keyframes impactRing {
-  0% { transform: scale(1); opacity: 0.6; }
+  0%   { transform: scale(1); opacity: 0.6; }
   100% { transform: scale(6); opacity: 0; }
 }
-
 /* Cosmic dust */
 @keyframes dustBreathe { 0%,100%{opacity:0.03;transform:scale(1)} 50%{opacity:0.06;transform:scale(1.05)} }
 @keyframes cosmicDust {
   0%,100% { transform: translate(0, 0); opacity: 0.15; }
-  25% { transform: translate(12px, -8px); opacity: 0.3; }
-  50% { transform: translate(-6px, -15px); opacity: 0.2; }
-  75% { transform: translate(8px, 5px); opacity: 0.35; }
+  25%     { transform: translate(12px, -8px); opacity: 0.3; }
+  50%     { transform: translate(-6px, -15px); opacity: 0.2; }
+  75%     { transform: translate(8px, 5px); opacity: 0.35; }
 }
-
-/* Aurora borealis */
+/* Aurora */
 @keyframes auroraPulse {
   0%,100% { opacity: 0.6; }
-  30% { opacity: 1; }
-  60% { opacity: 0.4; }
-  80% { opacity: 0.9; }
+  30%     { opacity: 1; }
+  60%     { opacity: 0.4; }
+  80%     { opacity: 0.9; }
 }
 @keyframes auroraShift {
   0%,100% { transform: translateX(0) scaleY(1); }
-  25% { transform: translateX(30px) scaleY(1.15); }
-  50% { transform: translateX(-20px) scaleY(0.9); }
-  75% { transform: translateX(15px) scaleY(1.1); }
+  25%     { transform: translateX(30px) scaleY(1.15); }
+  50%     { transform: translateX(-20px) scaleY(0.9); }
+  75%     { transform: translateX(15px) scaleY(1.1); }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   Minecraft Pixel Font — Global Readability
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* Force pixel font everywhere (themeable: Cosmos keeps Press Start 2P,
-   other themes can override via the --aura-pixel-font CSS variable). */
-*, *::before, *::after {
-  font-family: var(--aura-pixel-font, 'Press Start 2P', 'Courier New', monospace) !important;
-}
-
-/* Opt-in "prose" class used by TypewriterText + long body text so the user's
-   selected reading font (from Settings → Teme) actually wins over the global
-   pixel rule. Higher specificity via the class selector + !important. */
-.aura-theme-font,
-.aura-theme-font * {
-  font-family: var(--aura-font, Georgia, 'Times New Roman', serif) !important;
-}
-
-/* Ensure all text is at least readable — Press Start 2P needs bigger sizes */
-button, span, div, p, label, a, li, td, th, h1, h2, h3, h4, h5, h6, input, textarea, select {
-  line-height: 1.8 !important;
-  min-font-size: 9px;
-}
-
-/* Override all hardcoded tiny font sizes — pixel font is unreadable below 8px */
-[style*="font-size: 5px"], [style*="font-size:5px"],
-[style*="font-size: 6px"], [style*="font-size:6px"] {
-  font-size: 9px !important;
-}
-[style*="font-size: 8px"], [style*="font-size:8px"] {
-  font-size: 10px !important;
-}
-
-input, textarea, select {
-  font-size: inherit;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   Custom Pixel Cursor
-   ══════════════════════════════════════════════════════════════════════════════ */
-html, body, #root {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect x='0' y='0' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='0' y='2' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='0' y='4' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='0' y='6' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='0' y='8' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='0' y='10' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='2' y='4' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='2' y='6' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='2' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='4' y='4' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='4' y='6' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='4' y='8' width='2' height='2' fill='%23d97706'/%3E%3Crect x='6' y='6' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='6' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='8' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='8' y='10' width='2' height='2' fill='%23d97706'/%3E%3Crect x='10' y='10' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='10' y='12' width='2' height='2' fill='%23d97706'/%3E%3C/svg%3E") 0 0, default;
-}
-
-button, a, [role="button"], .cursor-pointer {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Crect x='6' y='0' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='8' y='0' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='4' y='2' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='6' y='2' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='8' y='2' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='10' y='2' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='4' y='4' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='6' y='4' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='8' y='4' width='2' height='2' fill='%23ffe8c0'/%3E%3Crect x='10' y='4' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='4' y='6' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='6' y='6' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='8' y='6' width='2' height='2' fill='%23f5e4a8'/%3E%3Crect x='10' y='6' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='2' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='4' y='8' width='2' height='2' fill='%23d97706'/%3E%3Crect x='6' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='8' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='10' y='8' width='2' height='2' fill='%23d97706'/%3E%3Crect x='12' y='8' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='2' y='10' width='2' height='2' fill='%23d97706'/%3E%3Crect x='4' y='10' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='10' y='10' width='2' height='2' fill='%23c49a3c'/%3E%3Crect x='12' y='10' width='2' height='2' fill='%23d97706'/%3E%3Crect x='4' y='12' width='2' height='2' fill='%23d97706'/%3E%3Crect x='10' y='12' width='2' height='2' fill='%23d97706'/%3E%3C/svg%3E") 7 4, pointer;
-}
-
-/* Pixel-art text rendering — crisp edges */
-#root {
-  -webkit-font-smoothing: none;
-  -moz-osx-font-smoothing: unset;
-  text-rendering: optimizeSpeed;
-  image-rendering: pixelated;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   Globally-available keyframes (used across multiple components)
-   ══════════════════════════════════════════════════════════════════════════════ */
+/* Old entrance / pulse keyframes still referenced inline by lesson screens. */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes auraPulse {
-  0%, 100% { box-shadow: 0 0 14px rgba(196,154,60,0.24); }
-  50%      { box-shadow: 0 0 28px rgba(196,154,60,0.45), 0 0 50px rgba(196,154,60,0.12); }
+  0%, 100% { box-shadow: 0 0 14px rgba(var(--aura-accent-rgb, 196,154,60), 0.24); }
+  50%      { box-shadow: 0 0 28px rgba(var(--aura-accent-rgb, 196,154,60), 0.45), 0 0 50px rgba(var(--aura-accent-rgb, 196,154,60), 0.12); }
 }
-@keyframes panelIn {
-  from { opacity: 0; transform: scale(0.95) translateY(10px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+
+/* ─── Legacy theme-font hook (TypewriterText + similar) ─────────────────
+   Lets the bot's response text follow whatever font the user picked in
+   Settings → Theme via the --aura-font CSS variable set by ThemeContext.
+   Without this rule, .aura-theme-font on TypewriterText would silently fall
+   through to Inter and ignore the customisation. */
+.aura-theme-font,
+.aura-theme-font * {
+  font-family: var(--aura-font, 'Newsreader', Georgia, 'Times New Roman', serif) !important;
+}
+
+/* ─── Tiny-pixel-font safety net ─────────────────────────────────────────
+   Many existing screens (Chat, FocusMode, BrainGames, TeacherMode,
+   CourseView, Achievements, ThemePicker, AIError, overlay, TopIndicator,
+   TaskPanel, LessonViewer code blocks) still inline `fontSize: 5` / 6 /
+   8 with Press Start 2P — those are unreadable without a bump. We keep
+   the same attribute-selector overrides the old globals.css had, so a
+   later PR can migrate them onto the new font-* utilities at its leisure. */
+[style*="font-size: 5px"], [style*="font-size:5px"],
+[style*="font-size: 6px"], [style*="font-size:6px"] {
+  font-size: 11px !important;
+}
+[style*="font-size: 7px"], [style*="font-size:7px"] {
+  font-size: 11px !important;
+}
+[style*="font-size: 8px"], [style*="font-size:8px"] {
+  font-size: 12px !important;
+}
+
+/* ─── Reduced motion preference ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

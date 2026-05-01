@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import type { Lesson } from '../../../../shared/types'
 import LessonSupportPanel from './LessonSupportPanel'
+import { markLessonCompletedToday } from './StreakNudge'
 
 interface Props {
   lesson: Lesson
@@ -424,7 +425,12 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
   )
 }
 
-export default function LessonViewer({ lesson, lessonTotal = 0, onBack, onComplete, devSkipEnabled = false, onDevSkip }: Props) {
+export default function LessonViewer({ lesson, lessonTotal = 0, onBack, onComplete: rawOnComplete, devSkipEnabled = false, onDevSkip }: Props) {
+  // Wrap completion to silence the streak nudge for today.
+  const onComplete = () => {
+    markLessonCompletedToday()
+    rawOnComplete()
+  }
   const [understandingScore, setUnderstandingScore] = useState<number | null>(null)
   const [lessonStage, setLessonStage] = useState<'lesson' | 'support'>('lesson')
   const renderableContent = getRenderableLessonContent(lesson.content)
