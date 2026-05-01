@@ -377,6 +377,94 @@ button:active:not(:disabled) {
 .reading-prose p + p { margin-top: 1.05em; }
 .reading-prose strong { color: var(--color-paper-0); font-weight: 600; }
 
+/* ─── Legacy keyframe aliases (kept until callsites migrate) ──────────────
+   These are referenced by inline styles in BackgroundOrbs, LessonViewer,
+   LessonPractice, LessonQuiz, Settings, VoiceCall, etc. We keep them here so
+   the rewrite of globals.css does not silently break entrance animations
+   and the cosmic background scene. */
+/* Stars */
+@keyframes starTwinkle { 0%,100%{opacity:0.3;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.3)} }
+/* Planets */
+@keyframes planetFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+/* Sun */
+@keyframes sunPulse {
+  0%,100% { transform: translate(-50%, -50%) scale(1); }
+  50%     { transform: translate(-50%, -50%) scale(1.06); }
+}
+/* Asteroids */
+@keyframes asteroidDrift { 0%{transform:translateX(-60px) rotate(0deg)} 100%{transform:translateX(calc(100vw + 60px)) rotate(360deg)} }
+/* Debris */
+@keyframes debrisFloat {
+  0%,100% { transform: translate(0, 0); }
+  20%     { transform: translate(15px, -10px); }
+  40%     { transform: translate(-8px, -20px); }
+  60%     { transform: translate(12px, 8px); }
+  80%     { transform: translate(-10px, 12px); }
+}
+@keyframes debrisSpin {
+  0%   { filter: drop-shadow(0 0 2px rgba(160,140,120,0.2)) brightness(1); }
+  50%  { filter: drop-shadow(0 0 3px rgba(160,140,120,0.3)) brightness(1.1); }
+  100% { filter: drop-shadow(0 0 2px rgba(160,140,120,0.2)) brightness(1); }
+}
+/* Big meteors */
+@keyframes bigMeteor {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  1%   { opacity: 0.6; }
+  2%   { opacity: 1; }
+  10%  { opacity: 1; transform: translate(calc(110vw), calc(60vh)); }
+  11%  { opacity: 0; transform: translate(calc(120vw), calc(65vh)); }
+  100% { opacity: 0; transform: translate(calc(120vw), calc(65vh)); }
+}
+@keyframes sparkFlicker {
+  0%   { opacity: 0.3; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.3); }
+}
+/* Impacts */
+@keyframes impactFlash {
+  0%   { transform: scale(0.3); opacity: 1; }
+  40%  { transform: scale(1.5); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+@keyframes impactDebris {
+  0%   { transform: rotate(var(--r, 0deg)) translateX(5px); opacity: 1; }
+  100% { transform: rotate(var(--r, 0deg)) translateX(35px); opacity: 0; }
+}
+@keyframes impactRing {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(6); opacity: 0; }
+}
+/* Cosmic dust */
+@keyframes dustBreathe { 0%,100%{opacity:0.03;transform:scale(1)} 50%{opacity:0.06;transform:scale(1.05)} }
+@keyframes cosmicDust {
+  0%,100% { transform: translate(0, 0); opacity: 0.15; }
+  25%     { transform: translate(12px, -8px); opacity: 0.3; }
+  50%     { transform: translate(-6px, -15px); opacity: 0.2; }
+  75%     { transform: translate(8px, 5px); opacity: 0.35; }
+}
+/* Aurora */
+@keyframes auroraPulse {
+  0%,100% { opacity: 0.6; }
+  30%     { opacity: 1; }
+  60%     { opacity: 0.4; }
+  80%     { opacity: 0.9; }
+}
+@keyframes auroraShift {
+  0%,100% { transform: translateX(0) scaleY(1); }
+  25%     { transform: translateX(30px) scaleY(1.15); }
+  50%     { transform: translateX(-20px) scaleY(0.9); }
+  75%     { transform: translateX(15px) scaleY(1.1); }
+}
+
+/* Old entrance / pulse keyframes still referenced inline by lesson screens. */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes auraPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(var(--aura-accent-rgb, 196,154,60), 0.24); }
+  50%      { box-shadow: 0 0 28px rgba(var(--aura-accent-rgb, 196,154,60), 0.45), 0 0 50px rgba(var(--aura-accent-rgb, 196,154,60), 0.12); }
+}
+
 /* ─── Reduced motion preference ───────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

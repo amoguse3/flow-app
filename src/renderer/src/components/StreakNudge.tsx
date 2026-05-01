@@ -30,16 +30,19 @@ export default function StreakNudge() {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    if (!motivation) return
-    if ((motivation.streak ?? 0) < 2) return
-    if (!isAfter6pm()) return
+    if (!motivation) {
+      setOpen(false)
+      return
+    }
+    if ((motivation.streak ?? 0) < 2) { setOpen(false); return }
+    if (!isAfter6pm()) { setOpen(false); return }
 
     const today = todayKey()
     const dismissed = localStorage.getItem(KEY_DISMISSED)
-    if (dismissed === today) return
+    if (dismissed === today) { setOpen(false); return }
 
     const lastLesson = localStorage.getItem(KEY_LAST_LESSON_DAY)
-    if (lastLesson === today) return
+    if (lastLesson === today) { setOpen(false); return }
 
     setOpen(true)
   }, [motivation])
