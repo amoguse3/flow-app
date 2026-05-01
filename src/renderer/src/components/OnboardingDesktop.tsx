@@ -73,6 +73,38 @@ const AGE_OPTIONS: Array<{ code: AgeGroup; label: string; emoji: string }> = [
   { code: 'unknown', label: 'Skip', emoji: '·' },
 ]
 
+// Hero orb — defined at module scope so React keeps a stable component
+// identity across parent re-renders. If we colocate this inside
+// OnboardingDesktop, every keystroke in the name field re-creates the
+// component, remounting the DOM and restarting the breathing animation.
+function HeroOrb({ size, animate, skin }: { size: number; animate?: boolean; skin: OrbSkin }) {
+  return (
+    <div
+      className={animate ? 'animate-breathe' : ''}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: skin.gradient,
+        boxShadow: `0 0 ${size * 0.6}px ${skin.glow}, 0 0 ${size * 1.4}px ${skin.ring}`,
+        position: 'relative',
+        transition: 'background 0.4s ease, box-shadow 0.4s ease',
+      } as CSSProperties}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          boxShadow:
+            'inset 0 0 30px rgba(255,255,255,0.18), inset 0 -20px 40px rgba(0,0,0,0.35)',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  )
+}
+
 export default function OnboardingDesktop({ onComplete }: Props) {
   const { setThemeId } = useTheme()
   const [step, setStep] = useState<Step>(0)
@@ -110,31 +142,6 @@ export default function OnboardingDesktop({ onComplete }: Props) {
     }
     onComplete(profile)
   }
-
-  // ─── Hero orb (lives in the upper area on every step, scales between steps) ──
-  const HeroOrb = ({ size, animate }: { size: number; animate?: boolean }) => (
-    <div
-      className={animate ? 'animate-breathe' : ''}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: orbSkin.gradient,
-        boxShadow: `0 0 ${size * 0.6}px ${orbSkin.glow}, 0 0 ${size * 1.4}px ${orbSkin.ring}`,
-        position: 'relative',
-      } as CSSProperties}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: '50%',
-          boxShadow: 'inset 0 0 30px rgba(255,255,255,0.18), inset 0 -20px 40px rgba(0,0,0,0.35)',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  )
 
   // ─── Background haze that picks up the chosen orb's tone ────────────────────
   const haze: CSSProperties = {
@@ -184,7 +191,7 @@ export default function OnboardingDesktop({ onComplete }: Props) {
         {step === 0 && (
           <>
             <div className="mb-8">
-              <HeroOrb size={140} animate />
+              <HeroOrb size={140} animate skin={orbSkin} />
             </div>
             <DisplayTitle size="lg" gradient="aurora" tight className="text-center mb-3">
               Hey. Welcome.
@@ -229,7 +236,7 @@ export default function OnboardingDesktop({ onComplete }: Props) {
         {step === 1 && (
           <>
             <div className="mb-7">
-              <HeroOrb size={104} animate />
+              <HeroOrb size={104} animate skin={orbSkin} />
             </div>
             <DisplayTitle size="md" gradient="aurora" tight className="text-center mb-2">
               Choose your aura.
@@ -367,7 +374,7 @@ export default function OnboardingDesktop({ onComplete }: Props) {
         {step === 3 && (
           <>
             <div className="mb-6">
-              <HeroOrb size={84} animate />
+              <HeroOrb size={84} animate skin={orbSkin} />
             </div>
             <DisplayTitle size="md" gradient="aurora" tight className="text-center mb-2">
               One last thing.
